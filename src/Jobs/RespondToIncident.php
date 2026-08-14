@@ -6,7 +6,6 @@ namespace JeffKolez\FirstResponder\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -24,9 +23,14 @@ use Throwable;
  * redacted by FirstResponder::prepare(), so nothing sensitive is sitting in the
  * queue backend.
  */
+/*
+ * Note the absence of Illuminate\Foundation\Bus\Dispatchable. It would drag
+ * illuminate/foundation — the entire framework skeleton — into this package's
+ * dependency graph purely to provide a static ::dispatch() helper we never
+ * call: FirstResponder dispatches through the Bus contract it is given.
+ */
 class RespondToIncident implements ShouldQueue
 {
-    use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;

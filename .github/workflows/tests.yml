@@ -12,18 +12,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.2', '8.3', '8.4']
-        laravel: ['11.*', '12.*']
         include:
-          - laravel: '11.*'
-            testbench: '9.*'
-          - laravel: '12.*'
+          # Testbench major determines the Laravel major it boots:
+          # testbench 10 -> Laravel 12, testbench 11 -> Laravel 13.
+          #
+          # Only testbench is pinned. Overriding illuminate/support alone (the
+          # first attempt) partially constrains the graph and lets Composer pick
+          # a mismatched illuminate/notifications, which then conflicts with the
+          # pinned support version — an unresolvable set that has nothing to do
+          # with this package.
+          - php: '8.2'
+            laravel: '12'
             testbench: '10.*'
+          - php: '8.3'
+            laravel: '12'
+            testbench: '10.*'
+          - php: '8.4'
+            laravel: '12'
+            testbench: '10.*'
+          # Laravel 13 requires PHP 8.3+, so there is no 8.2 leg for it.
+          - php: '8.3'
+            laravel: '13'
+            testbench: '11.*'
+          - php: '8.4'
+            laravel: '13'
+            testbench: '11.*'
 
     name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -33,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer require "illuminate/support:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+          composer require "orchestra/testbench:${{ matrix.testbench }}" --dev --no-interaction --no-update
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests

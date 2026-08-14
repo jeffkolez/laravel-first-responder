@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use JeffKolez\FirstResponder\FirstResponder;
 use JeffKolez\FirstResponder\Jobs\RespondToIncident;
 use JeffKolez\FirstResponder\Support\Redactor;
+use JeffKolez\FirstResponder\Support\SourceExtractor;
 use JeffKolez\FirstResponder\Tests\TestCase;
 use RuntimeException;
 
@@ -45,7 +46,7 @@ class FirstResponderTest extends TestCase
     public function test_ignoring_a_base_class_also_ignores_its_subclasses(): void
     {
         Bus::fake();
-        $this->withConfig(['first-responder.ignore' => [RuntimeException::class]]);
+        $this->reconfigure(['first-responder.ignore' => [RuntimeException::class]]);
 
         // OutOfBoundsException extends RuntimeException — must be ignored.
         $this->assertFalse(
@@ -63,7 +64,7 @@ class FirstResponderTest extends TestCase
     public function test_it_stays_silent_outside_the_configured_environments(): void
     {
         Bus::fake();
-        $this->withConfig(['first-responder.environments' => ['production']]);
+        $this->reconfigure(['first-responder.environments' => ['production']]);
 
         $this->assertFalse(app(FirstResponder::class)->report(new RuntimeException('boom')));
         Bus::assertNothingDispatched();
@@ -72,7 +73,7 @@ class FirstResponderTest extends TestCase
     public function test_the_master_switch_turns_everything_off(): void
     {
         Bus::fake();
-        $this->withConfig(['first-responder.enabled' => false]);
+        $this->reconfigure(['first-responder.enabled' => false]);
 
         $this->assertFalse(app(FirstResponder::class)->report(new RuntimeException('boom')));
         Bus::assertNothingDispatched();
@@ -106,7 +107,7 @@ class FirstResponderTest extends TestCase
         Bus::fake();
 
         // Dedupe off so the budget is unambiguously what does the limiting.
-        $this->withConfig([
+        $this->reconfigure([
             'first-responder.max_per_hour' => 3,
             'first-responder.dedupe_minutes' => 0,
         ]);
@@ -155,7 +156,7 @@ class FirstResponderTest extends TestCase
     public function test_redaction_can_be_disabled_explicitly(): void
     {
         Bus::fake();
-        $this->withConfig(['first-responder.redact' => false]);
+        $this->reconfigure(['first-responder.redact' => false]);
 
         app(FirstResponder::class)->report(new RuntimeException('token sk-abcdefghijklmnopqrstuvwxyz012345'));
 
@@ -164,18 +165,34 @@ class FirstResponderTest extends TestCase
         });
     }
 
+    /**
+     * Source context is read at capture time, not in the queued job.
+     *
+     * The SourceExtractor is rebound to the PACKAGE root here. Under Testbench,
+     * app()->basePath() is the throwaway skeleton app, and this test file is not
+     * inside it — so the extractor would correctly refuse to read it and the
+     * test would fail for a reason that has nothing to do with what it checks.
+     * That refusal is the path-traversal guard doing its job; see CoreTest.
+     */
     public function test_source_context_is_attached_at_capture_time(): void
     {
         Bus::fake();
+
+        $this->app->instance(
+            SourceExtractor::class,
+            new SourceExtractor(dirname(__DIR__, 2), 5)
+        );
+        $this->app->forgetInstance(FirstResponder::class);
 
         app(FirstResponder::class)->report(new RuntimeException('boom'));
 
         Bus::assertDispatched(RespondToIncident::class, function (RespondToIncident $job) {
             $frames = $job->payload['frames'] ?? [];
 
-            // The throw site is this test file, which lives under base_path in
-            // Testbench, so the extractor should have read real lines from it.
-            return isset($frames[0]['context_line']) && $frames[0]['context_line'] !== null;
+            return isset($frames[0]['context_line'])
+                && $frames[0]['context_line'] !== null
+                // The throw site above — proves it read this file, not any file.
+                && str_contains($frames[0]['context_line'], 'boom');
         });
     }
 }

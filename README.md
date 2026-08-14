@@ -179,7 +179,7 @@ $this->app->bind(Diagnostician::class, MyDiagnostician::class);
 
 One method: `diagnose(Incident $incident): ?Diagnosis`. Implementations **must not throw** — return `null` and the report goes out without a diagnosis. Losing the explanation degrades the message; losing the alert loses the outage.
 
-There's a deliberate non-dependency here: no vendor AI SDK. At the time of writing the official `laravel/ai` was pre-1.0, excluded Laravel 11 outright, and had already swapped its own backend between minors. This package depends on an interface it owns instead.
+There's a deliberate non-dependency here: no vendor AI SDK. At the time of writing the official `laravel/ai` was pre-1.0 and had already swapped its own backend between minors. This package depends on an interface it owns instead.
 
 ---
 
@@ -195,7 +195,9 @@ Bind the null driver in your own tests and nothing touches the network:
 $this->app->bind(Diagnostician::class, NullDiagnostician::class);
 ```
 
-Requires PHP 8.2+ and Laravel 11, 12 or 13.
+**Requires PHP 8.2+ and Laravel 12 or 13.**
+
+Laravel 11 is not supported, and that is not a choice about effort. `illuminate/mail ^11` — which `illuminate/notifications` depends on, and this package needs for the `Notification` — is flagged by a security advisory across every 11.x release, so Composer refuses to install it. Supporting a version that cannot be resolved without `policy.advisories.block: false` would mean asking you to switch off a security check to install an error-monitoring tool. If you are on Laravel 11, upgrade the framework first.
 
 ---
 

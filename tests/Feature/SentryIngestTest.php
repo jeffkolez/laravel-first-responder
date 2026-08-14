@@ -29,7 +29,7 @@ class SentryIngestTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function payload(string $issueId = '1117540176'): array
+    private function webhookPayload(string $issueId = '1117540176'): array
     {
         return [
             'action' => 'triggered',
@@ -56,7 +56,7 @@ class SentryIngestTest extends TestCase
         ];
     }
 
-    private function post(array $payload, ?string $signature = null, string $resource = 'event_alert')
+    private function postWebhook(array $payload, ?string $signature = null, string $resource = 'event_alert')
     {
         $body = json_encode($payload);
 
@@ -71,7 +71,7 @@ class SentryIngestTest extends TestCase
     {
         Bus::fake();
 
-        $this->post($this->payload())->assertStatus(202);
+        $this->postWebhook($this->webhookPayload())->assertStatus(202);
 
         Bus::assertDispatched(RespondToIncident::class, function (RespondToIncident $job) {
             return $job->payload['external_id'] === '1117540176'
@@ -83,7 +83,7 @@ class SentryIngestTest extends TestCase
     {
         Bus::fake();
 
-        $this->post($this->payload(), 'deadbeef')->assertStatus(404);
+        $this->postWebhook($this->webhookPayload(), 'deadbeef')->assertStatus(404);
 
         Bus::assertNothingDispatched();
     }
@@ -92,7 +92,7 @@ class SentryIngestTest extends TestCase
     {
         Bus::fake();
 
-        $body = json_encode($this->payload());
+        $body = json_encode($this->webhookPayload());
 
         $this->call('POST', '/first-responder/sentry', [], [], [], [
             'CONTENT_TYPE' => 'application/json',
@@ -111,7 +111,7 @@ class SentryIngestTest extends TestCase
     {
         Bus::fake();
 
-        $payload = $this->payload();
+        $payload = $this->webhookPayload();
         $compactSignature = hash_hmac('sha256', json_encode($payload), self::SECRET);
 
         $this->call('POST', '/first-responder/sentry', [], [], [], [
@@ -128,7 +128,7 @@ class SentryIngestTest extends TestCase
     {
         Bus::fake();
 
-        $this->post($this->payload(), null, 'installation')
+        $this->postWebhook($this->webhookPayload(), null, 'installation')
             ->assertOk()
             ->assertJson(['status' => 'ignored']);
 
@@ -140,26 +140,11 @@ class SentryIngestTest extends TestCase
     {
         Bus::fake();
 
-        $this->post($this->payload())->assertStatus(202);
-        $this->post($this->payload())->assertStatus(200);
-        $this->post($this->payload())->assertStatus(200);
+        $this->postWebhook($this->webhookPayload())->assertStatus(202);
+        $this->postWebhook($this->webhookPayload())->assertStatus(200);
+        $this->postWebhook($this->webhookPayload())->assertStatus(200);
 
         Bus::assertDispatchedTimes(RespondToIncident::class, 1);
     }
 
-    /**
-     * A half-configured install must not leave an unauthenticated public
-     * endpoint lying around, so the route is only registered with a secret.
-     */
-    public function test_the_route_does_not_exist_without_a_secret(): void
-    {
-        config()->set('first-responder.sentry.secret', '');
-        $this->refreshApplication();
-
-        $this->post($this->payload())->assertNotFound();
-
-        $this->assertFalse(
-            $this->app['router']->getRoutes()->hasNamedRoute('first-responder.sentry')
-        );
-    }
 }

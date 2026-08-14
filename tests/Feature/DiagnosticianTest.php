@@ -31,14 +31,14 @@ class DiagnosticianTest extends TestCase
 
     public function test_the_container_builds_the_configured_driver(): void
     {
-        $this->withConfig([
+        $this->reconfigure([
             'first-responder.diagnostician' => 'openai',
             'first-responder.diagnosticians.openai.key' => 'test-key',
         ]);
 
         $this->assertInstanceOf(OpenAiDiagnostician::class, app(Diagnostician::class));
 
-        $this->withConfig([
+        $this->reconfigure([
             'first-responder.diagnostician' => 'anthropic',
             'first-responder.diagnosticians.anthropic.key' => 'test-key',
         ]);

@@ -36,7 +36,7 @@ abstract class TestCase extends Orchestra
      *
      * @param  array<string, mixed>  $values
      */
-    protected function withConfig(array $values): void
+    protected function reconfigure(array $values): void
     {
         foreach ($values as $key => $value) {
             config()->set($key, $value);
