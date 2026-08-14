@@ -6,12 +6,12 @@ namespace JeffKolez\FirstResponder\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use JeffKolez\FirstResponder\Contracts\Diagnostician;
 use JeffKolez\FirstResponder\Notifications\IncidentReported;
 use JeffKolez\FirstResponder\Support\Incident;
+use JeffKolez\FirstResponder\Support\Recipients;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -72,7 +72,9 @@ class RespondToIncident implements ShouldQueue
         $config = (array) config('first-responder.notifications', []);
         $channels = (array) ($config['channels'] ?? ['mail']);
 
-        $notifiable = $this->notifiable((array) ($config['routes'] ?? []));
+        // Shared with first-responder:test, so the command exercises exactly
+        // the construction production uses rather than a lookalike.
+        $notifiable = Recipients::fromRoutes((array) ($config['routes'] ?? []));
 
         if ($notifiable === null) {
             $logger->warning('first-responder: no notification routes configured; nothing sent.');
@@ -81,30 +83,5 @@ class RespondToIncident implements ShouldQueue
         }
 
         $notifiable->notify(new IncidentReported($incident, $diagnosis, $channels));
-    }
-
-    /**
-     * Build an on-the-fly notifiable from configured routes.
-     *
-     * Anonymous rather than requiring a User model, because the audience for
-     * these is an ops channel, not a person with an account.
-     *
-     * @param  array<string, mixed>  $routes
-     */
-    private function notifiable(array $routes): ?AnonymousNotifiable
-    {
-        $routes = array_filter($routes, static fn ($v) => $v !== null && $v !== '');
-
-        if ($routes === []) {
-            return null;
-        }
-
-        $notifiable = new AnonymousNotifiable();
-
-        foreach ($routes as $channel => $route) {
-            $notifiable->route((string) $channel, $route);
-        }
-
-        return $notifiable;
     }
 }

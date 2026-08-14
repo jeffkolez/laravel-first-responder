@@ -8,6 +8,7 @@ use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use JeffKolez\FirstResponder\Console\TestCommand;
 use JeffKolez\FirstResponder\Contracts\Diagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\AnthropicDiagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\NullDiagnostician;
@@ -82,6 +83,8 @@ class FirstResponderServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/../config/first-responder.php' => $this->app->configPath('first-responder.php'),
             ], 'first-responder-config');
+
+            $this->commands([TestCommand::class]);
         }
 
         $this->registerSentryRoute();

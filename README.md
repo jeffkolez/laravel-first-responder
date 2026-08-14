@@ -14,7 +14,30 @@ dereferences it immediately. Use findOrFail(), or guard the null before
 reading ->name.
 ```
 
-Not "an error occurred, here's a link". The actual line, the code around it, and a read on what went wrong — in Telegram, Slack, Discord, or wherever your team already talks.
+Not "an error occurred, here's a link". The actual line, the code around it, and a read on what went wrong — in Telegram, Slack, Discord, or wherever you already look.
+
+---
+
+## Who this is for
+
+**You build the thing and you also fix the thing.** One developer, or a handful. No on-call rota, no ops team, nobody watching a dashboard at 3am — because the dashboard is a browser tab you closed last Tuesday.
+
+At that size the failure mode isn't missing alerts, it's *ignoring* them. An email that says `TypeError in ProfileController` tells you nothing you can act on from your phone, so you file it under "look at it later", and later never comes. The point of this package is that the message contains enough to decide **right now** whether it can wait until morning.
+
+It fits particularly well if you are:
+
+- **A solo founder or small shop** running a handful of Laravel apps you can't watch continuously
+- **An agency maintaining client sites** — you need to know which client broke, and roughly why, before you open the laptop
+- **Running a side project on one box** where a paid observability tier costs more than the hosting
+- **Already on Sentry's free plan** and hitting the paywall on the one feature you wanted: notifications that say something useful
+- **Somewhere that can't send code to a third party** — point the OpenAI driver at a local Ollama, or turn diagnosis off entirely and still get the line and the source
+
+**When you should use something else:**
+
+- **You need history, grouping, search, or trends.** This is an alerting layer, not an error tracker. It has no dashboard and no database. Keep Sentry, GlitchTip or Bugsink for the record — this composes with them rather than replacing them.
+- **You have a real incident process.** Rotas, escalation, acknowledgement, SLAs — that's PagerDuty or Opsgenie territory and this doesn't pretend otherwise.
+- **You have a high-traffic app with a dedicated ops team.** They already have dashboards, and a chat message per new error will annoy them.
+- **Your errors are mostly infrastructure**, not code. A diagnosis of a stack trace can't tell you the disk filled up.
 
 ---
 
@@ -81,6 +104,61 @@ Or `anthropic`. Or point the OpenAI driver at anything speaking the same wire fo
 ```env
 FIRST_RESPONDER_OPENAI_BASE_URL=http://localhost:11434/v1   # Ollama, on your own hardware
 ```
+
+---
+
+## Checking it works
+
+```bash
+php artisan first-responder:test
+```
+
+Sends a real test incident through the whole pipeline and reports each stage — environment, driver, redaction, source extraction, diagnosis, delivery. It prints the exact message it is about to send, so even a failed send tells you what it *would* have said.
+
+```
+  Environment ................................................. production
+  Enabled ............................................................ yes
+  Diagnostician ......................................... OpenAiDiagnostician
+  Redaction ........................................................... on
+  Incident ......... RuntimeException: First Responder test incident — nothing…
+  Location ................ vendor/jeffkolez/…/Console/TestCommand.php:214
+  Source context ........................................ read from disk
+  Diagnosis ............................................ gpt-4o-mini (734ms)
+```
+
+Options:
+
+| | |
+|---|---|
+| `--no-ai` | Skip the diagnosis call, so the test costs nothing |
+| `--dry` | Show the message without sending it |
+| `--queue` | Dispatch through the queue instead of running inline |
+
+### Testing in production
+
+Safe to run: it sends one message and makes one AI call. It touches no application data, and it does **not** consume your hourly budget.
+
+It deliberately ignores three things that would otherwise stop it — the `environments` gate, the dedupe window and the budget cap. All three exist to *suppress* reports, so a test command subject to them would refuse to do anything the second time you ran it. It tells you when it has bypassed one.
+
+**Run it in two passes.** They test different halves, and the first one passing while the second fails is the most common way this goes wrong:
+
+```bash
+# 1. Config, credentials and delivery — runs inline, no worker involved.
+php artisan first-responder:test
+
+# 2. The queue leg — hands the real job to the real queue.
+php artisan first-responder:test --queue
+```
+
+Pass 1 proves your keys and routes are right. Pass 2 proves a worker is actually consuming the queue, which is how real errors are processed. If pass 1 delivers and pass 2 doesn't, your configuration is fine and your worker is dead, watching a different queue, or running old code after a deploy.
+
+**To test the exception handler itself** — the wiring in `bootstrap/app.php`, which neither pass above touches:
+
+```bash
+php artisan tinker --execute="report(new RuntimeException('Deliberate test'));"
+```
+
+That goes through the genuine path: Laravel's handler → your reportable callback → the gates → the queue → delivery. It is the only check that proves an actual thrown exception reaches you, and the only one subject to the dedupe window — so if you run it twice you should get exactly one message. That is the throttle working, not a failure.
 
 ---
 
