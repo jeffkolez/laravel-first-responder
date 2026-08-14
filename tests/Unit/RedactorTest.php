@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace JeffKolez\FirstResponder\Tests\Unit;
 
 use JeffKolez\FirstResponder\Support\Redactor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -54,9 +55,16 @@ class RedactorTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider tokenShapes
+    /*
+     * The ATTRIBUTE, not the @dataProvider docblock annotation.
+     *
+     * PHPUnit 12 removed annotation-based providers entirely. Because PHPUnit
+     * 12 requires PHP 8.3, the annotation kept working on the 8.2 leg and
+     * silently stopped on 8.3 and 8.4 — where the test was called with no
+     * arguments and died with ArgumentCountError. The attribute is understood
+     * by PHPUnit 10, 11 and 12 alike.
      */
+    #[DataProvider('tokenShapes')]
     public function test_it_masks_known_token_shapes(string $secret): void
     {
         $this->assertStringNotContainsString(
