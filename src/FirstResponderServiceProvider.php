@@ -37,8 +37,8 @@ class FirstResponderServiceProvider extends ServiceProvider
             return new Redactor(
                 (array) $app['config']->get('first-responder.redact_patterns', []),
                 (array) $app['config']->get('first-responder.redact_literals', []),
-                // Null means "read the real environment", which is the whole
-                // point — the literal matcher needs the actual secret values.
+                // Null means "read the real environment". The literal matcher
+                // needs the actual secret values.
                 null,
                 (bool) $app['config']->get('first-responder.redact_emails', true),
             );
@@ -91,9 +91,9 @@ class FirstResponderServiceProvider extends ServiceProvider
     }
 
     /**
-     * The Sentry ingest route only exists when it is switched on AND has a
+     * The Sentry ingest route only exists when it is switched on and has a
      * secret. Registering an unauthenticated public endpoint because somebody
-     * half-configured the package would be the worst possible default.
+     * half-configured the package would be a bad default.
      */
     private function registerSentryRoute(): void
     {

@@ -13,13 +13,13 @@ use JeffKolez\FirstResponder\Support\Incident;
 /**
  * The report itself.
  *
- * A plain Laravel Notification rather than a bundle of channel drivers, which
- * is the whole delivery strategy: every channel package that already exists —
- * Telegram, Slack, Discord, Teams, ntfy, whatever you already use — works with
- * this for free, and this package maintains none of them.
+ * A plain Laravel Notification, not a bundle of channel drivers. That is the
+ * delivery strategy: every channel package that already exists (Telegram,
+ * Slack, Discord, Teams, ntfy) works with this for free, and this package
+ * maintains none of them.
  *
  * `toArray()` carries the structured incident, so a custom channel can format
- * it however it likes rather than parsing prose back apart.
+ * it however it likes without parsing the prose back apart.
  */
 class IncidentReported extends Notification
 {
@@ -72,8 +72,8 @@ class IncidentReported extends Notification
         if ($this->diagnosis !== null && ! $this->diagnosis->isEmpty()) {
             $lines[] = '';
             $lines[] = $this->diagnosis->confident
-                ? '— Likely cause —'
-                : '— Not certain, but —';
+                ? 'Likely cause'
+                : 'Possible cause (low confidence)';
             $lines[] = $this->diagnosis->summary;
         }
 

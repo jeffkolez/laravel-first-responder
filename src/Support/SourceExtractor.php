@@ -8,18 +8,18 @@ namespace JeffKolez\FirstResponder\Support;
  * Fills in source context for frames that arrived without any.
  *
  * A native Throwable carries file and line but no surrounding code, and the
- * surrounding code is the entire reason a diagnosis is worth reading. Sentry,
- * by contrast, captures context at throw time and ships it in the payload — so
- * this only ever runs where it is actually needed, and never overwrites context
- * that already exists (which would be wrong as well as wasteful: Sentry's
- * snapshot is of the code that ran, and the file on disk may have been
- * redeployed since).
+ * surrounding code is most of what makes a diagnosis worth reading. Sentry
+ * captures context at throw time and ships it in the payload, so this only runs
+ * where it is needed, and it never overwrites context that already exists.
+ * Overwriting would be wrong as well as wasteful: Sentry's snapshot is of the
+ * code that ran, and the file on disk may have been redeployed since.
  *
- * CONFINED TO THE PROJECT ON PURPOSE. Frame data can originate from a webhook,
- * which makes the file path externally influenced. Without the base-path check
- * an attacker who could forge a frame could read any file the PHP user can —
- * and then have it helpfully mailed to a chat channel. Every path is resolved
- * with realpath() and rejected unless it sits inside the configured root.
+ * Reads are confined to the project root. Frame data can originate from a
+ * webhook, which makes the file path externally influenced. Without the
+ * base-path check, an attacker who could forge a frame could read any file the
+ * PHP user can, and then have it mailed to a chat channel. Every path is
+ * resolved with realpath() and rejected unless it sits inside the configured
+ * root.
  */
 final class SourceExtractor
 {

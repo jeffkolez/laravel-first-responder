@@ -10,16 +10,15 @@ use JeffKolez\FirstResponder\Support\Incident;
 /**
  * Turns a Sentry issue-alert webhook body into an Incident.
  *
- * Sentry orders stack frames OUTERMOST FIRST — the opposite of a PHP throwable
- * — so they are reversed here. Skip that and every report leads with a
- * framework bootstrap file and buries the line that actually broke, which looks
- * like the tool not working rather than a subtle ordering bug.
+ * Sentry orders stack frames outermost first, the opposite of a PHP throwable,
+ * so they are reversed here. Skip that and every report leads with a framework
+ * bootstrap file and buries the line that broke, which reads as the tool not
+ * working.
  *
  * Sentry also ships pre/post source context captured at throw time, which is
- * strictly better than reading the file later: it is a snapshot of the code
- * that actually ran, and it works for frames whose source does not exist on
- * this machine at all (a JavaScript frontend reporting into the same project,
- * for instance).
+ * better than reading the file later: it is a snapshot of the code that ran,
+ * and it works for frames whose source does not exist on this machine at all (a
+ * JavaScript frontend reporting into the same project, for instance).
  */
 final class SentryPayload
 {

@@ -10,7 +10,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Master switch. Off by default in the published config would be a footgun
-    | (people install, see nothing, assume it's broken), so it is on — but the
+    | (people install, see nothing, assume it's broken), so it is on. The
     | `environments` key below keeps it quiet outside production.
     |
     */
@@ -37,9 +37,8 @@ return [
     | Subclasses are matched too, so listing a base class covers its children.
     |
     | These defaults are the ones that are not bugs: a 404 means somebody typed
-    | a URL, a validation error means a form was filled in wrong, a 419 means a
-    | tab sat open too long. Reporting them trains you to ignore the channel,
-    | which is the only real failure mode for a tool like this.
+    | a URL, a validation error means a form was filled in wrong. Reporting them
+    | trains you to ignore the channel.
     |
     */
 
@@ -58,12 +57,12 @@ return [
     | Rate limiting
     |--------------------------------------------------------------------------
     |
-    | `dedupe_minutes` — how long one distinct error stays quiet after being
+    | `dedupe_minutes`: how long one distinct error stays quiet after being
     | reported. Identity is the exception class plus the innermost in-app line,
-    | NOT the message, so "record 4171 not found" and "record 9022 not found"
+    | not the message, so "record 4171 not found" and "record 9022 not found"
     | count as the same bug. Set 0 to disable.
     |
-    | `max_per_hour` — a hard ceiling on reports, and therefore on spend.
+    | `max_per_hour`: a hard ceiling on reports, and therefore on spend.
     | Dedupe alone bounds nothing: a deploy that breaks fifty different things
     | produces fifty novel fingerprints and fifty AI calls. Set 0 to disable,
     | but think about the bill first.
@@ -92,11 +91,11 @@ return [
     | Redaction
     |--------------------------------------------------------------------------
     |
-    | Runs before ANYTHING is serialised — so it protects the queue payload as
-    | well as whatever the diagnostician sees. Turning it off is not advisable
-    | and the option exists mainly so the decision is a visible one.
+    | Runs before anything is serialised, so it protects the queue payload as
+    | well as whatever the diagnostician sees. Turning it off is not advisable;
+    | the option exists so the decision is a visible one.
     |
-    | Values of environment variables whose NAME looks sensitive (KEY, SECRET,
+    | Values of environment variables whose name looks sensitive (KEY, SECRET,
     | TOKEN, PASSWORD, …) are masked wherever they appear, which catches
     | credentials that no regex would recognise. `literals` adds your own.
     |
@@ -133,13 +132,13 @@ return [
     | Diagnostician
     |--------------------------------------------------------------------------
     |
-    | 'null' — no AI. Reports still carry type, message, location and source,
+    | 'null': no AI. Reports still carry type, message, location and source,
     | which is most of the value. Use this if code must not leave your network.
     |
-    | 'openai' — also speaks to anything OpenAI-compatible. Point base_url at
+    | 'openai': also speaks to anything OpenAI-compatible. Point base_url at
     | Azure, OpenRouter, Groq, or a local Ollama to keep it on-premises.
     |
-    | 'anthropic' — the Messages API.
+    | 'anthropic': the Messages API.
     |
     | Or bind your own implementation of the Diagnostician contract.
     |
@@ -173,8 +172,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Standard Laravel notification channels. This package ships no channel
-    | drivers of its own on purpose — install any community channel package and
-    | name it here, and it works.
+    | drivers of its own. Install any community channel package, name it here,
+    | and it works.
     |
     | e.g. 'channels' => ['telegram'],
     |      'routes'   => ['telegram' => env('TELEGRAM_ALERT_CHAT_ID')],
@@ -200,7 +199,7 @@ return [
     |
     | If you already run Sentry, point a Sentry Internal Integration at
     | POST /first-responder/sentry and its issue alerts flow through the same
-    | pipeline. Sentry is NOT required to use this package.
+    | pipeline. Sentry is not required to use this package.
     |
     | `secret` is the integration's Client Secret and is the only thing
     | authenticating that route. Blank disables the route entirely.

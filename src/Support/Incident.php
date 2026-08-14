@@ -9,9 +9,9 @@ use Throwable;
 /**
  * Everything the package knows about one thing going wrong.
  *
- * This is the seam of the whole design. A native Laravel exception and a Sentry
+ * This is the seam of the design. A native Laravel exception and a Sentry
  * webhook payload arrive looking nothing alike; both become an Incident, and
- * every stage after that — redaction, diagnosis, notification — is written
+ * every stage after that (redaction, diagnosis, notification) is written
  * against this one shape. Adding a third source later means writing one
  * normaliser and touching nothing else.
  *
@@ -80,7 +80,7 @@ final class Incident
     /**
      * The frames worth showing, innermost first.
      *
-     * Two things happen here and both matter:
+     * Two things happen here:
      *
      *  - vendor/framework frames are dropped, because "the error happened in
      *    Illuminate\Routing\Router" is true of almost every Laravel exception
@@ -89,7 +89,7 @@ final class Incident
      *    and every extra frame is tokens on the diagnosis bill.
      *
      * If filtering leaves nothing (a crash entirely inside vendor code) the
-     * unfiltered frames are returned instead — a less useful report beats a
+     * unfiltered frames are returned instead. A less useful report beats a
      * report with no location in it at all.
      *
      * @return Frame[]

@@ -11,19 +11,17 @@ use Illuminate\Contracts\Cache\Repository as Cache;
  *
  * Two independent limits, because they fail in different directions:
  *
- * DEDUPE answers "have we already said this?". A bad deploy throws the same
- * exception thousands of times a minute. Reporting each one buries the signal
- * in the noise at exactly the moment somebody is trying to read the channel.
+ * Dedupe stops us repeating ourselves. A bad deploy throws the same exception
+ * thousands of times a minute, and reporting each one buries the signal in the
+ * noise at the moment somebody is trying to read the channel.
  *
- * BUDGET answers "have we said too much, full stop?". Dedupe alone does not
- * bound anything: a deploy that breaks fifty DIFFERENT things produces fifty
- * distinct fingerprints, every one of them novel, every one of them an AI call.
- * The cap is what stops an incident becoming an invoice.
+ * Budget caps the number of reports, and so the spend. Dedupe alone bounds
+ * nothing: a deploy that breaks fifty different things produces fifty distinct
+ * fingerprints, every one of them novel, every one of them an AI call.
  *
  * Both use Cache::add, which is atomic. This matters more than it looks: a
- * spike is precisely the moment several queue workers process the same
- * fingerprint concurrently, and a read-then-write check would let all of them
- * through.
+ * spike is the moment several queue workers process the same fingerprint
+ * concurrently, and a read-then-write check would let all of them through.
  */
 final class Gatekeeper
 {
@@ -41,9 +39,9 @@ final class Gatekeeper
     /**
      * First sighting of this fingerprint in the dedupe window?
      *
-     * Claims the slot as a side effect — calling twice returns false the second
-     * time. That is the point, but it means this must be called exactly once
-     * per incident, at the moment you commit to reporting it.
+     * Claims the slot as a side effect: calling twice returns false the second
+     * time. That is intended, but it means this must be called exactly once per
+     * incident, at the moment you commit to reporting it.
      */
     public function claim(string $fingerprint): bool
     {
@@ -61,10 +59,10 @@ final class Gatekeeper
     /**
      * Is there budget left this hour?
      *
-     * Increments on success. Uses a fixed hourly window rather than a rolling
-     * one: a rolling window needs a sorted set or a timestamp list, and the
-     * extra machinery buys nothing here — the goal is a ceiling on spend, not
-     * a precise rate.
+     * Increments on success. The window is a fixed hour, not a rolling one: a
+     * rolling window needs a sorted set or a timestamp list, and the extra
+     * machinery buys nothing here. The goal is a ceiling on spend, not a
+     * precise rate.
      */
     public function withinBudget(): bool
     {
@@ -76,7 +74,7 @@ final class Gatekeeper
 
         // add() both creates the counter and tells us whether we created it, so
         // the first call of the hour needs no separate existence check. The TTL
-        // is set once, here, and never extended by later increments — otherwise
+        // is set once, here, and never extended by later increments. Otherwise
         // a steady trickle of errors would keep pushing the window forward and
         // the counter would never reset.
         if ($this->cache->add($key, 1, 3600)) {

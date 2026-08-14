@@ -7,10 +7,10 @@ namespace JeffKolez\FirstResponder\Support;
 /**
  * One line of a stack trace, normalised.
  *
- * Deliberately a plain value object rather than an array: every source this
- * package accepts (a native Throwable, a Sentry webhook, whatever comes next)
- * produces frames in a slightly different shape, and normalising at the edge
- * means the rest of the package only ever reasons about one of them.
+ * A plain value object, not an array: every source this package accepts (a
+ * native Throwable, a Sentry webhook, whatever comes next) produces frames in a
+ * slightly different shape, and normalising at the edge means the rest of the
+ * package only ever reasons about one of them.
  */
 final class Frame
 {
@@ -32,9 +32,9 @@ final class Frame
     /**
      * Source around this frame, if any travelled with it.
      *
-     * Returns '' rather than null when there is nothing, so callers can treat
-     * "no source" and "empty source" identically — there is no useful
-     * distinction and an extra null check at every call site is just noise.
+     * Returns '' when there is nothing, so callers can treat "no source" and
+     * "empty source" identically. There is no useful distinction between them,
+     * and an extra null check at every call site is noise.
      */
     public function context(): string
     {

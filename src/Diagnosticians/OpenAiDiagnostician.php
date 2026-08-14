@@ -15,14 +15,15 @@ use Throwable;
 /**
  * Diagnoses via the OpenAI chat completions API.
  *
- * Uses Laravel's HTTP client rather than an SDK on purpose: it is one endpoint
- * with a stable request shape, and taking a hard dependency on a fast-moving
- * vendor package to send one JSON body would be a poor trade for consumers of
- * this library. It also means Http::fake() works in your tests for free.
+ * Uses Laravel's HTTP client instead of an SDK: this is one endpoint with a
+ * stable request shape, and taking a hard dependency on a fast-moving vendor
+ * package to send one JSON body would be a poor trade for consumers of this
+ * library. It also means Http::fake() works in your tests for free.
  *
  * `base_url` is configurable so this same driver serves anything speaking the
- * OpenAI wire format — Azure OpenAI, OpenRouter, Groq, or a local Ollama, which
- * is the answer for teams that cannot send source code off-premises at all.
+ * OpenAI wire format: Azure OpenAI, OpenRouter, Groq, or a local Ollama. The
+ * last of those is the answer for teams that cannot send source code
+ * off-premises at all.
  */
 final class OpenAiDiagnostician implements Diagnostician
 {
@@ -46,7 +47,7 @@ final class OpenAiDiagnostician implements Diagnostician
             $response = Http::withToken($this->apiKey)
                 ->timeout($this->timeout)
                 // One retry only. This runs on a queue behind a throttle, and a
-                // provider outage should degrade the report rather than pile up
+                // provider outage should degrade the report, not pile up
                 // workers retrying into a wall.
                 ->retry(1, 500, throw: false)
                 ->post(rtrim($this->baseUrl, '/') . '/chat/completions', [
@@ -76,7 +77,7 @@ final class OpenAiDiagnostician implements Diagnostician
 
             return Diagnosis::make($summary, $confident, $this->model);
         } catch (Throwable $e) {
-            // Contractually must not throw — see Diagnostician.
+            // Contractually must not throw. See Diagnostician.
             $this->logger?->warning('first-responder: OpenAI diagnosis errored.', [
                 'exception' => $e->getMessage(),
             ]);

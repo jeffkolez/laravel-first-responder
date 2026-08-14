@@ -22,12 +22,11 @@ use Throwable;
  * serialisable and stays readable in a failed_jobs row. It has already been
  * redacted by FirstResponder::prepare(), so nothing sensitive is sitting in the
  * queue backend.
- */
-/*
- * Note the absence of Illuminate\Foundation\Bus\Dispatchable. It would drag
- * illuminate/foundation — the entire framework skeleton — into this package's
- * dependency graph purely to provide a static ::dispatch() helper we never
- * call: FirstResponder dispatches through the Bus contract it is given.
+ *
+ * Note the absence of Illuminate\Foundation\Bus\Dispatchable. It would pull
+ * illuminate/foundation, the whole framework skeleton, into this package's
+ * dependency graph to provide a static ::dispatch() helper nothing calls.
+ * FirstResponder dispatches through the Bus contract it is given.
  */
 class RespondToIncident implements ShouldQueue
 {
@@ -56,7 +55,7 @@ class RespondToIncident implements ShouldQueue
     ): void {
         $incident = Incident::fromArray($this->payload);
 
-        // Contractually a Diagnostician never throws — but it is an interface
+        // Contractually a Diagnostician never throws, but it is an interface
         // anyone can implement, and a third-party implementation that breaks
         // must not be able to swallow the alert.
         try {
@@ -72,8 +71,8 @@ class RespondToIncident implements ShouldQueue
         $config = (array) config('first-responder.notifications', []);
         $channels = (array) ($config['channels'] ?? ['mail']);
 
-        // Shared with first-responder:test, so the command exercises exactly
-        // the construction production uses rather than a lookalike.
+        // Shared with first-responder:test, so the command exercises the same
+        // construction production uses, not a lookalike.
         $notifiable = Recipients::fromRoutes((array) ($config['routes'] ?? []));
 
         if ($notifiable === null) {

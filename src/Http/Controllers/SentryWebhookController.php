@@ -15,15 +15,15 @@ use Psr\Log\LoggerInterface;
  * Optional ingest for people who already run Sentry.
  *
  * Sentry's own chat notifications are a paid feature while webhooks are not, so
- * this exists to close that gap — and it means the package can add diagnosis to
+ * this exists to close that gap. It also means the package can add diagnosis to
  * an existing Sentry setup without replacing it.
  *
- * AUTHENTICATION
+ * Authentication
  * --------------
  * Sentry cannot send an arbitrary header, so the HMAC signature is the only
  * thing in front of this endpoint. Two details that are easy to get wrong:
  *
- *  1. The digest is over the RAW body. Sentry's published JS example hashes
+ *  1. The digest is over the raw body. Sentry's published JS example hashes
  *     JSON.stringify(request.body), which round-trips there by luck; decoding
  *     and re-encoding in PHP reorders keys and changes spacing, and every
  *     signature would fail. We hash the untouched bytes.
@@ -58,8 +58,8 @@ class SentryWebhookController
         $resource = (string) $request->header('Sentry-Hook-Resource', '');
 
         if (! in_array($resource, self::HANDLED, true)) {
-            // Signed and valid, just not ours — 200 so Sentry does not flag the
-            // integration as failing and begin retrying.
+            // Signed and valid, just not ours. Return 200 so Sentry does not
+            // flag the integration as failing and begin retrying.
             return response()->json(['status' => 'ignored', 'resource' => $resource]);
         }
 
@@ -69,10 +69,10 @@ class SentryWebhookController
             return response()->json(['status' => 'ignored']);
         }
 
-        // Straight through report(), so Sentry-sourced incidents get exactly the
-        // same treatment as native ones: same ignore list, same redaction, same
-        // dedupe, same budget. A second path with its own rules is how two
-        // behaviours drift apart.
+        // Straight through report(), so Sentry-sourced incidents get the same
+        // treatment as native ones: same ignore list, same redaction, same
+        // dedupe, same budget. A second path with its own rules would drift out
+        // of step with this one.
         $accepted = $responder->report($incident);
 
         return response()->json(

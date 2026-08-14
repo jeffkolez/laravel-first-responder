@@ -7,15 +7,15 @@ namespace JeffKolez\FirstResponder\Support;
 /**
  * What the diagnostician concluded.
  *
- * `summary` is prose meant to be read on a phone at 2am, so it is short by
- * contract rather than by convention — the prompt asks for brevity and this
- * enforces it, because a model that ignores the word limit should not be able
- * to flood a chat channel.
+ * `summary` is prose meant to be read on a phone, so it is short by contract
+ * and not only by convention. The prompt asks for brevity and this enforces it:
+ * a model that ignores the word limit should not be able to flood a chat
+ * channel.
  *
  * `confident` exists so a report can be honest about not knowing. A diagnosis
- * that says "not enough information, look at X" is genuinely useful; one that
- * invents a plausible-sounding cause is worse than none at all, because it
- * sends somebody down the wrong path while production is down.
+ * that says "not enough information, look at X" is useful. One that invents a
+ * plausible-sounding cause sends somebody down the wrong path while production
+ * is down.
  */
 final class Diagnosis
 {

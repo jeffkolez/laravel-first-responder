@@ -15,12 +15,11 @@ use Throwable;
 /**
  * Diagnoses via the Anthropic Messages API.
  *
- * Shape differs from OpenAI's in three ways that are easy to get wrong, so they
- * are called out here rather than discovered later:
+ * Shape differs from OpenAI's in three ways that are easy to get wrong:
  *
  *  - auth is `x-api-key`, not a bearer token;
  *  - `anthropic-version` is a required header, not optional;
- *  - the system prompt is a TOP-LEVEL field, not a message with role=system.
+ *  - the system prompt is a top-level field, not a message with role=system.
  *    Passing it as a message is accepted and then largely ignored, which fails
  *    silently and produces worse answers for no visible reason.
  */

@@ -16,20 +16,20 @@ use Throwable;
 /**
  * The front door. Everything that reports an error comes through here.
  *
- * ORDER OF OPERATIONS, AND WHY IT IS THIS ORDER
+ * Order of operations, and why it is this order
  * ---------------------------------------------
- * 1. filter    — is this worth reporting at all?
- * 2. enrich    — attach source context FROM DISK, now, while the deployed code
- *                still matches the code that threw. Do it in the queued job
- *                instead and a deploy between the throw and the job running
- *                gives you the wrong lines, confidently presented.
- * 3. REDACT    — before anything is serialised. The queue payload lands in
- *                Redis or a database table, and secrets sitting in a jobs table
- *                are a leak whether or not a model ever sees them. Redacting
- *                after dequeue would protect the model and not the queue.
- * 4. gatekeep  — claim the fingerprint and spend budget BEFORE dispatching, so
- *                a storm never even creates the jobs.
- * 5. dispatch  — the slow part (diagnosis, delivery) happens off the request.
+ * 1. filter:   is this worth reporting at all?
+ * 2. enrich:   attach source context from disk now, while the deployed code
+ *              still matches the code that threw. Do it in the queued job
+ *              instead and a deploy between the throw and the job running
+ *              gives you the wrong lines, confidently presented.
+ * 3. redact:   before anything is serialised. The queue payload lands in
+ *              Redis or a database table, and secrets sitting in a jobs table
+ *              are a leak whether or not a model ever sees them. Redacting
+ *              after dequeue would protect the model and not the queue.
+ * 4. gatekeep: claim the fingerprint and spend budget before dispatching, so
+ *              a storm never creates the jobs.
+ * 5. dispatch: the slow part (diagnosis, delivery) happens off the request.
  */
 final class FirstResponder
 {
@@ -68,7 +68,7 @@ final class FirstResponder
         $incident = $this->prepare($incident);
 
         // Claim first, budget second. If the fingerprint is a duplicate we
-        // return before touching the budget — otherwise a single hot error
+        // return before touching the budget. Otherwise a single hot error
         // would burn the hourly allowance on reports nobody ever sees.
         if (! $this->gatekeeper->claim(Fingerprint::for($incident))) {
             return false;
@@ -124,8 +124,9 @@ final class FirstResponder
         $environments = (array) ($this->config['environments'] ?? []);
         $current = $this->config['environment'] ?? null;
 
-        // An empty list means "everywhere" — the least surprising reading, and
-        // it keeps local experimentation working without extra configuration.
+        // An empty list means "everywhere". That is the least surprising
+        // reading, and it keeps local experimentation working without extra
+        // configuration.
         if ($environments !== [] && $current !== null && ! in_array($current, $environments, true)) {
             return false;
         }

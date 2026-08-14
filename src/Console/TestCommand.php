@@ -19,14 +19,14 @@ use Throwable;
 /**
  * Prove the whole pipeline works, without waiting for production to break.
  *
- * WHY IT DELIBERATELY IGNORES THE GATES
- * -------------------------------------
+ * Why it ignores the gates
+ * ------------------------
  * `environments`, the dedupe window and the hourly budget all exist to stop
  * reports being sent. A test command subject to them would refuse to do
  * anything the second time you ran it, and would refuse the first time on any
- * machine that isn't production — which is every machine you'd actually be
- * configuring on. So this bypasses all three and says so, rather than leaving
- * you to wonder why nothing happened.
+ * machine that isn't production, which is every machine you would be
+ * configuring on. So it bypasses all three, and prints that it has done so
+ * instead of leaving you to wonder why nothing happened.
  *
  * Everything else is the real path: a real thrown exception, the real source
  * extractor, the real redactor, the real diagnostician, the real notification,
@@ -44,7 +44,7 @@ class TestCommand extends Command
     public function handle(FirstResponder $responder, Diagnostician $diagnostician): int
     {
         $this->line('');
-        $this->components->info('First Responder — pipeline test');
+        $this->components->info('First Responder pipeline test');
 
         $config = (array) config('first-responder.notifications', []);
         $channels = (array) ($config['channels'] ?? []);
@@ -73,16 +73,16 @@ class TestCommand extends Command
             'Source context',
             ($frames !== [] && $frames[0]->context() !== '')
                 ? '<fg=green>read from disk</>'
-                : '<fg=yellow>none — check source_lines and file permissions</>'
+                : '<fg=yellow>none. Check source_lines and file permissions.</>'
         );
 
         /*
          * --queue exists because everything else in this command runs inline,
          * and inline is not how production works. A real error is prepared in
-         * the request, queued, and finished by a worker — so if the worker is
-         * dead, or watching a different queue, every check below still passes
-         * and no alert ever arrives. This is the only way to test that link
-         * without breaking something for real.
+         * the request, queued, and finished by a worker. If the worker is dead,
+         * or watching a different queue, every check below still passes and no
+         * alert arrives. This is the only way to test that link without
+         * breaking something for real.
          */
         if ($this->option('queue')) {
             return $this->dispatchThroughQueue($incident);
@@ -94,7 +94,7 @@ class TestCommand extends Command
         if ($this->option('no-ai')) {
             $this->components->twoColumnDetail('Diagnosis', '<fg=gray>skipped (--no-ai)</>');
         } elseif ($diagnostician instanceof NullDiagnostician) {
-            $this->components->twoColumnDetail('Diagnosis', '<fg=gray>driver is "null" — no AI call</>');
+            $this->components->twoColumnDetail('Diagnosis', '<fg=gray>driver is "null", no AI call</>');
         } else {
             $diagnosis = $this->attemptDiagnosis($diagnostician, $incident);
         }
@@ -109,7 +109,7 @@ class TestCommand extends Command
         $this->line('');
 
         if ($this->option('dry')) {
-            $this->components->warn('Dry run — nothing was sent.');
+            $this->components->warn('Dry run. Nothing was sent.');
 
             return self::SUCCESS;
         }
@@ -143,11 +143,11 @@ class TestCommand extends Command
     /**
      * Hand the real job to the real queue and stop.
      *
-     * Nothing is reported back because there is nothing to report: the point is
-     * that a DIFFERENT process finishes the work. If the message arrives, the
-     * worker is alive and watching the right queue. If it doesn't, the job is
-     * sitting in the queue table or Horizon is down — and either way the
-     * failure is now visible somewhere you can look.
+     * Nothing is reported back because there is nothing to report: a separate
+     * process finishes the work. If the message arrives, the worker is alive
+     * and watching the right queue. If it does not, the job is sitting in the
+     * queue table or Horizon is down, and either way the failure is visible
+     * somewhere you can look.
      */
     private function dispatchThroughQueue(Incident $incident): int
     {
@@ -169,7 +169,7 @@ class TestCommand extends Command
         $this->components->twoColumnDetail('Queue', (string) (config('first-responder.queue') ?: 'default'));
         $this->line('');
         $this->line('  <fg=gray>No message within a few seconds means the worker is the problem,</>');
-        $this->line('  <fg=gray>not the configuration — check Horizon, or that a worker is watching</>');
+        $this->line('  <fg=gray>not the configuration. Check Horizon, or that a worker is watching</>');
         $this->line('  <fg=gray>the queue named above. Run without --queue to bypass the worker.</>');
         $this->line('');
 
@@ -190,13 +190,13 @@ class TestCommand extends Command
         if ($gated !== [] && ! in_array($env, $gated, true)) {
             $this->components->twoColumnDetail(
                 'Environment gate',
-                '<fg=yellow>bypassed for this test — real errors here would NOT be reported</>'
+                '<fg=yellow>bypassed for this test. Real errors here would not be reported.</>'
             );
         }
 
         $this->components->twoColumnDetail(
             'Enabled',
-            config('first-responder.enabled', true) ? '<fg=green>yes</>' : '<fg=yellow>no — real errors are NOT reported</>'
+            config('first-responder.enabled', true) ? '<fg=green>yes</>' : '<fg=yellow>no. Real errors are not reported.</>'
         );
 
         $this->components->twoColumnDetail('Diagnostician', $this->shortName($diagnostician::class));
@@ -221,7 +221,7 @@ class TestCommand extends Command
             }
 
             $this->line('  <fg=gray>Add a matching key under first-responder.notifications.routes.</>');
-            $this->line('  <fg=gray>This is silent at runtime — the channel is called and simply returns.</>');
+            $this->line('  <fg=gray>This is silent at runtime: the channel is called and returns.</>');
 
             return false;
         }
@@ -242,7 +242,7 @@ class TestCommand extends Command
             );
             $this->line('  <fg=gray>The driver returns null rather than throwing, by contract. Usual causes:</>');
             $this->line('  <fg=gray>a missing or rejected API key, or the provider being unreachable.</>');
-            $this->line('  <fg=gray>Check the log — the driver writes a warning with the status code.</>');
+            $this->line('  <fg=gray>Check the log. The driver writes a warning with the status code.</>');
 
             return null;
         }
@@ -261,15 +261,15 @@ class TestCommand extends Command
     }
 
     /**
-     * Throw and catch inside the package so the incident carries a genuine
-     * stack trace pointing at a real file — which is what gives the source
-     * extractor something to do and makes this a test of that too.
+     * Throw and catch inside the package so the incident carries a real stack
+     * trace pointing at a real file. That gives the source extractor something
+     * to do, so this exercises it too.
      */
     private function provokeException(): Throwable
     {
         try {
             throw new RuntimeException(
-                'First Responder test incident — nothing is actually broken.'
+                'First Responder test incident. Nothing is broken.'
             );
         } catch (Throwable $e) {
             return $e;

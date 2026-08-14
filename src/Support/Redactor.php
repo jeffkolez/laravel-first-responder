@@ -7,34 +7,34 @@ namespace JeffKolez\FirstResponder\Support;
 /**
  * Strips secrets out of anything before it leaves the building.
  *
- * WHY THIS IS THE MOST IMPORTANT CLASS HERE
- * -----------------------------------------
+ * Why this class matters
+ * ----------------------
  * Diagnosing an error usefully means sending real source code and real request
- * data to a third-party model. That is a genuinely new egress path out of a
- * production app, and "we send your code to OpenAI" is the reason a sensible
- * team says no to a package like this.
+ * data to a third-party model. That is a new egress path out of a production
+ * app, and "we send your code to OpenAI" is the reason a sensible team says no
+ * to a package like this.
  *
- * So redaction is not a feature flag, it is the default, and it runs on every
- * string that goes anywhere near a diagnostician.
+ * So redaction is the default, not a feature flag, and it runs on every string
+ * that goes anywhere near a diagnostician.
  *
  * Three layers, cheapest and most reliable first:
  *
- *  1. EXACT ENVIRONMENT VALUES. The strongest signal available, and the one
+ *  1. Exact environment values. The strongest signal available, and the one
  *     pattern-matching cannot replicate. If APP_KEY or DB_PASSWORD or some
- *     bespoke SECRET_SAUCE_TOKEN is literally sitting in the text, we know its
- *     exact value — no regex required. This catches secrets that look like
- *     nothing in particular, which is most of them.
+ *     bespoke SECRET_SAUCE_TOKEN is sitting in the text, we know its exact
+ *     value and need no regex. This catches secrets that look like nothing in
+ *     particular, which is most of them.
  *
- *  2. KNOWN TOKEN SHAPES. Provider-issued credentials with recognisable
+ *  2. Known token shapes. Provider-issued credentials with recognisable
  *     prefixes (sk-, ghp_, AKIA, xox…), JWTs, PEM blocks. Catches secrets that
- *     are in the code but not in the environment — a hardcoded key someone
+ *     are in the code but not in the environment: a hardcoded key someone
  *     committed, or a token pulled from a database.
  *
- *  3. ASSIGNMENT SHAPES. `'password' => '...'`, `$token = "..."`, `SECRET=...`.
+ *  3. Assignment shapes. `'password' => '...'`, `$token = "..."`, `SECRET=...`.
  *     The catch-all for the ones the first two missed.
  *
- * Deliberately biased toward over-redaction. A diagnosis slightly worse because
- * a string got masked is a small cost; a leaked production credential is not.
+ * Biased toward over-redaction. A diagnosis slightly worse because a string got
+ * masked is a small cost. A leaked production credential is not.
  */
 final class Redactor
 {
@@ -44,8 +44,8 @@ final class Redactor
      * Environment values shorter than this are never matched.
      *
      * Without a floor, APP_ENV=local turns every occurrence of the word "local"
-     * anywhere in your source into [redacted] — including in the very lines the
-     * model needs to read. Real secrets are long; this costs nothing.
+     * anywhere in your source into [redacted], including the lines the model
+     * needs to read. Real secrets are long, so this floor costs nothing.
      */
     private const MIN_ENV_VALUE_LENGTH = 8;
 
@@ -57,10 +57,10 @@ final class Redactor
     ];
 
     /**
-     * Substrings marking an env KEY as sensitive.
+     * Substrings that mark an environment variable's name as sensitive.
      *
-     * Used only to decide whether an env value is worth masking. Kept broad on
-     * purpose — a false positive here just means one extra harmless mask.
+     * Used only to decide whether an env value is worth masking. Kept broad: a
+     * false positive here means one extra harmless mask.
      */
     private const SENSITIVE_KEY_HINTS = [
         'KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'PASSWD', 'PWD', 'AUTH',
@@ -115,8 +115,8 @@ final class Redactor
             $replaced = @preg_replace($pattern, $replacement, $text);
 
             // A malformed custom pattern returns null. Keep the last good text
-            // rather than blanking it — losing the content would be worse than
-            // an unapplied rule, and the rule is the user's own.
+            // instead of blanking it. Losing the content is worse than skipping
+            // one rule, and the rule is the user's own.
             if ($replaced !== null) {
                 $text = $replaced;
             }
@@ -248,11 +248,11 @@ final class Redactor
     /**
      * Ordered [pattern, replacement] pairs.
      *
-     * Where a rule captures the part that identifies WHAT was masked — the
-     * variable name, the header scheme, the URL user — that group is preserved.
+     * Where a rule captures the part that identifies what was masked (the
+     * variable name, the header scheme, the URL user) that group is preserved.
      * A diagnosis is much better with "password => [redacted]" than with a bare
-     * "[redacted]": the model still learns a password is involved, which is
-     * often the whole clue, without learning what it is.
+     * "[redacted]": the model still learns a password is involved, without
+     * learning what it is.
      *
      * @return array<int, array{0: string, 1: string}>
      */
@@ -281,19 +281,19 @@ final class Redactor
             // JSON Web Tokens.
             ['/\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+/', $m],
 
-            // Authorization headers — keep the scheme.
+            // Authorization headers. Keep the scheme.
             ['/\b(Bearer|Basic|Token)\s+[A-Za-z0-9_\-.=+\/]{12,}/i', '$1 ' . $m],
 
-            // Credentials in a URL — keep scheme://user, drop the password.
+            // Credentials in a URL. Keep scheme://user, drop the password.
             ['/([a-z][a-z0-9+.\-]*:\/\/[^\s:\/@]+):[^\s@\/]+@/i', '$1:' . $m . '@'],
 
-            // 'password' => '…' / $token = "…" — keep the name and the operator.
+            // 'password' => '…' / $token = "…". Keep the name and the operator.
             [
                 '/([\'"]?\w*(?:key|secret|token|password|passwd|pwd|auth|credential)\w*[\'"]?\s*(?:=>|=|:)\s*)[\'"][^\'"\n]{4,}[\'"]/i',
                 '$1\'' . $m . '\'',
             ],
 
-            // SECRET=… in dotenv/shell form — keep the name.
+            // SECRET=… in dotenv/shell form. Keep the name.
             ['/\b(\w*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|PWD|AUTH)\w*)=\S{4,}/', '$1=' . $m],
         ];
     }

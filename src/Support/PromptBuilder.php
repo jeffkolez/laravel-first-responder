@@ -5,19 +5,17 @@ declare(strict_types=1);
 namespace JeffKolez\FirstResponder\Support;
 
 /**
- * Turns an incident into the text a model actually sees.
+ * Turns an incident into the text a model sees.
  *
  * Separate from the diagnosticians so that swapping providers doesn't mean
  * rewriting the prompt, and so the prompt itself can be asserted against in a
- * test — it is the part most likely to be quietly wrong, and the part where
- * "quietly wrong" costs the most.
+ * test. It is the part most likely to be quietly wrong.
  *
- * Two deliberate choices:
+ * Two choices worth knowing about:
  *
- *  - The instruction explicitly permits "I don't know". Models will otherwise
- *    produce a confident, fluent, wrong cause, and at 2am a wrong cause is
- *    worse than none — it sends somebody to the wrong file while the site is
- *    down.
+ *  - The instruction permits "I don't know". Models will otherwise produce a
+ *    confident, fluent, wrong cause, which sends somebody to the wrong file
+ *    while the site is down.
  *  - Output is capped hard in words. This is read on a phone.
  */
 final class PromptBuilder
@@ -59,7 +57,7 @@ final class PromptBuilder
         foreach ($incident->significantFrames($this->maxFrames) as $i => $frame) {
             $parts[] = '';
             $parts[] = sprintf(
-                'FRAME %d — %s%s',
+                'FRAME %d: %s%s',
                 $i + 1,
                 $frame->location(),
                 $frame->function === null ? '' : ' in ' . $frame->function . '()'
@@ -86,7 +84,7 @@ final class PromptBuilder
         $parts[] = sprintf(
             'In no more than %d words, plain text, no markdown, no preamble: give the '
             . 'most likely cause and the single change that would fix it. Name the file '
-            . 'and line. Some values above may show as %s — that is deliberate '
+            . 'and line. Some values above may show as %s. That is deliberate '
             . 'secret-scrubbing, so do not treat it as the bug. If the information above '
             . 'is not enough to be reasonably sure, begin your answer with "UNSURE:" and '
             . 'say what you would need to look at instead of guessing.',
