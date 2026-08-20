@@ -53,10 +53,16 @@ abstract class TestCase extends Orchestra
             \JeffKolez\FirstResponder\Support\RepoRouter::class,
             \JeffKolez\FirstResponder\Support\IssueRegistry::class,
             \JeffKolez\FirstResponder\Notifications\Channels\GitHubChannel::class,
-            // The ChannelManager memoises each driver it builds, so forgetting
-            // the channel alone is not enough — the manager would keep handing
-            // back the instance built from the old config.
-            \Illuminate\Notifications\ChannelManager::class,
+            // Deliberately NOT the ChannelManager, though it does memoise the
+            // drivers it builds. Notification::fake() resolves the real manager
+            // on its way past and swaps a NotificationFake in under the
+            // Dispatcher contract; forgetting the manager afterwards leaves the
+            // fake holding something the container has disowned, and assertions
+            // about what was sent quietly stop seeing anything.
+            //
+            // It is not needed anyway: nothing resolves the manager until the
+            // first notification is actually sent, which is after every
+            // reconfigure() a test is going to make.
             'first-responder',
         ] as $abstract) {
             $this->app->forgetInstance($abstract);

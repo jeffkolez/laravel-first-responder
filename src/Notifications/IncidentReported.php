@@ -7,8 +7,12 @@ namespace JeffKolez\FirstResponder\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use JeffKolez\FirstResponder\Support\ApprovalTokens;
 use JeffKolez\FirstResponder\Support\Diagnosis;
+use JeffKolez\FirstResponder\Support\Fingerprint;
 use JeffKolez\FirstResponder\Support\Incident;
+use JeffKolez\FirstResponder\Support\RepoRouter;
+use Throwable;
 
 /**
  * The report itself.
@@ -87,6 +91,87 @@ class IncidentReported extends Notification
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * The Telegram message, with the approval buttons when they are switched on.
+     *
+     * This is the one place the package knows a specific chat service exists,
+     * and it earns that by being the only way to put a button in front of
+     * somebody. Delivery is still laravel-notification-channels/telegram's job;
+     * we only hand it a richer object than a string.
+     *
+     * Written defensively on purpose. That package is a `suggest`, not a
+     * dependency, so its API is not pinned by anything here — every call is
+     * guarded, and any surprise degrades to the plain message that has always
+     * worked rather than throwing inside a notification about an error.
+     *
+     * No return type, deliberately: it is a TelegramMessage when the package is
+     * installed and a string when it is not.
+     */
+    public function toTelegram(object $notifiable)
+    {
+        $text = $this->toText();
+
+        $class = '\NotificationChannels\Telegram\TelegramMessage';
+
+        if (! class_exists($class) || ! method_exists($class, 'create')) {
+            return $text;
+        }
+
+        $message = $class::create($text);
+
+        // That package defaults to Markdown parsing, and Telegram rejects the
+        // entire message if the markers do not balance. A class name with an
+        // underscore in it is enough. Nothing here is markdown, so turn it off.
+        if (method_exists($message, 'options')) {
+            $message->options(['parse_mode' => null]);
+        }
+
+        return $this->withApprovalButtons($message);
+    }
+
+    /**
+     * Mint a token and attach the buttons, or return the message untouched.
+     *
+     * The token points at a fingerprint rather than an issue number, because
+     * this message is usually rendered before the issue is filed — channel
+     * order is the user's configuration, not something to depend on.
+     */
+    private function withApprovalButtons(object $message): object
+    {
+        if (! method_exists($message, 'buttonWithCallback')) {
+            return $message;
+        }
+
+        try {
+            $tokens = app(ApprovalTokens::class);
+
+            if (! $tokens->enabled()) {
+                return $message;
+            }
+
+            $repo = app(RepoRouter::class)->repoFor($this->incident);
+
+            if ($repo === null) {
+                return $message;
+            }
+
+            $token = $tokens->mint($repo, Fingerprint::for($this->incident));
+
+            if ($token === null) {
+                return $message;
+            }
+
+            $message->buttonWithCallback('Fix it', "fr:fix:{$token}");
+            $message->buttonWithCallback('Mute 24h', "fr:mute:{$token}");
+        } catch (Throwable) {
+            // An alert with no buttons is a degraded alert. An exception thrown
+            // while formatting one is a lost alert, during an incident.
+            return $message;
+        }
+
+        return $message;
     }
 
     public function toMail(object $notifiable): MailMessage

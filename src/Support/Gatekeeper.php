@@ -92,6 +92,27 @@ final class Gatekeeper
         return true;
     }
 
+    /**
+     * Hold one fingerprint quiet for longer than the usual window.
+     *
+     * For "I know about this, stop telling me" — a known-broken third party, or
+     * something already being worked on. Uses put() rather than add() because
+     * the fingerprint has by definition just been claimed by the report that
+     * prompted the request, so add() would find the key present and do nothing.
+     *
+     * Deliberately not persisted anywhere but the cache. A mute that survived a
+     * cache flush would be a mute you could forget you had set, and silence you
+     * cannot explain is worse than noise.
+     */
+    public function mute(string $fingerprint, int $minutes): void
+    {
+        if ($minutes <= 0) {
+            return;
+        }
+
+        $this->cache->put(self::DEDUPE_PREFIX . $fingerprint, true, $minutes * 60);
+    }
+
     /** How many reports have gone out this hour. */
     public function usedThisHour(): int
     {

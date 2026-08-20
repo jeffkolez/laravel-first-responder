@@ -236,6 +236,10 @@ return [
 
         'labels' => ['bug', 'first-responder'],
 
+        // Added by the "Fix it" button. Point whatever coding agent you use at
+        // this label; the package only ever adds it, and never merges anything.
+        'agent_label' => env('FIRST_RESPONDER_AGENT_LABEL', 'agent-fix'),
+
         'only_confident' => true,
 
         // Log what would be filed, file nothing. Worth switching on for a day
@@ -251,6 +255,56 @@ return [
         'base_url' => 'https://api.github.com',
 
         'timeout' => 15,
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Approvals — buttons on the alert (optional)
+    |--------------------------------------------------------------------------
+    |
+    | Puts "Fix it" and "Mute 24h" under each Telegram alert. "Fix it" adds the
+    | agent label to the issue this incident was filed as; "Mute" holds that one
+    | fingerprint quiet without touching anything else.
+    |
+    | Deciding what to do about an error should cost one tap, not a laptop.
+    |
+    | Requires the GitHub block above, and laravel-notification-channels/telegram
+    | for delivery. Run `php artisan first-responder:telegram-webhook` once to
+    | register the route with Telegram.
+    |
+    | `secret` is the webhook secret token: Telegram echoes it back in a header
+    | on every delivery and it is the only thing authenticating this route.
+    | Blank disables the route entirely. Generate one with `openssl rand -hex 32`.
+    |
+    | `allowed_chat_ids` is optional belt and braces. Empty means any chat, which
+    | is fine — the secret already proves the request came from Telegram.
+    |
+    | Note that a bot has exactly ONE webhook URL. If something else in your
+    | application already receives Telegram updates, the two have to share a
+    | route and dispatch internally.
+    |
+    */
+
+    'approvals' => [
+
+        'enabled' => env('FIRST_RESPONDER_APPROVALS_ENABLED', false),
+
+        'secret' => env('FIRST_RESPONDER_APPROVAL_SECRET'),
+
+        'bot_token' => env('FIRST_RESPONDER_TELEGRAM_BOT_TOKEN', env('TELEGRAM_BOT_TOKEN')),
+
+        'path' => 'first-responder/approve',
+
+        'middleware' => ['api'],
+
+        // How long a button stays live. Past this it says so rather than
+        // failing silently.
+        'ttl_hours' => 168,
+
+        'mute_hours' => 24,
+
+        'allowed_chat_ids' => [],
 
     ],
 

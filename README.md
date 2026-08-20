@@ -268,6 +268,37 @@ Anything unmatched falls through to `repo`. Set `FIRST_RESPONDER_GITHUB_DRY_RUN=
 
 ---
 
+## Decide from your phone
+
+Two buttons under each Telegram alert:
+
+**Fix it** adds a label to the issue. Point whatever coding agent you use at that label and it picks the work up. **Mute 24h** holds that one error quiet without touching anything else.
+
+```env
+FIRST_RESPONDER_APPROVALS_ENABLED=true
+FIRST_RESPONDER_APPROVAL_SECRET=$(openssl rand -hex 32)
+FIRST_RESPONDER_TELEGRAM_BOT_TOKEN=<your bot token>
+```
+
+Then register the webhook once:
+
+```bash
+php artisan first-responder:telegram-webhook
+```
+
+Needs the GitHub block above and `laravel-notification-channels/telegram` for delivery.
+
+**The package never merges anything.** It opens issues, asks, and labels. What happens after the label is your CI's business, and a human still presses merge.
+
+Requests are authenticated by Telegram's webhook secret token. The route isn't registered unless a secret is set. The button itself carries nothing but an opaque random token — a forged payload can't name a repository to write to, because the repository is only ever read back from your own cache.
+
+Two things worth knowing before you wire it up:
+
+- **A bot has exactly one webhook URL.** If something else in your app already receives Telegram updates, the two have to share a route.
+- **Buttons expire** after `approvals.ttl_hours` (a week by default), and a cache flush clears them early. An expired button says so rather than failing silently.
+
+---
+
 ## Configuration worth knowing
 
 | Key | Default | |
