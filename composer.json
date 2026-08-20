@@ -29,6 +29,7 @@
     ],
     "require": {
         "php": "^8.2",
+        "ext-mbstring": "*",
         "illuminate/bus": "^12.0|^13.0",
         "illuminate/cache": "^12.0|^13.0",
         "illuminate/contracts": "^12.0|^13.0",

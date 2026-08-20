@@ -49,6 +49,14 @@ abstract class TestCase extends Orchestra
             \JeffKolez\FirstResponder\Support\SourceExtractor::class,
             \JeffKolez\FirstResponder\Support\PromptBuilder::class,
             \JeffKolez\FirstResponder\Contracts\Diagnostician::class,
+            \JeffKolez\FirstResponder\Sinks\GitHubClient::class,
+            \JeffKolez\FirstResponder\Support\RepoRouter::class,
+            \JeffKolez\FirstResponder\Support\IssueRegistry::class,
+            \JeffKolez\FirstResponder\Notifications\Channels\GitHubChannel::class,
+            // The ChannelManager memoises each driver it builds, so forgetting
+            // the channel alone is not enough — the manager would keep handing
+            // back the instance built from the old config.
+            \Illuminate\Notifications\ChannelManager::class,
             'first-responder',
         ] as $abstract) {
             $this->app->forgetInstance($abstract);

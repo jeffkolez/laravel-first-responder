@@ -13,10 +13,14 @@ use JeffKolez\FirstResponder\Support\Incident;
 /**
  * The report itself.
  *
- * A plain Laravel Notification, not a bundle of channel drivers. That is the
- * delivery strategy: every channel package that already exists (Telegram,
+ * A plain Laravel Notification, not a bundle of chat channel drivers. That is
+ * the delivery strategy: every channel package that already exists (Telegram,
  * Slack, Discord, Teams, ntfy) works with this for free, and this package
  * maintains none of them.
+ *
+ * The one channel it does ship is `github`, and the exception proves the rule:
+ * every chat destination has a maintained community package, and nothing
+ * anywhere turns a redacted, deduplicated, diagnosed incident into an issue.
  *
  * `toArray()` carries the structured incident, so a custom channel can format
  * it however it likes without parsing the prose back apart.

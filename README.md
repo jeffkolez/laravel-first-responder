@@ -228,6 +228,46 @@ Sentry is optional. The package works standalone.
 
 ---
 
+## File it as a GitHub issue
+
+Chat reaches you in a minute. It is a bad place to keep a list. Add `github` alongside your chat channel and anything worth acting on also becomes an issue — with the failing line, the source around it and the diagnosis already in the body.
+
+```env
+FIRST_RESPONDER_GITHUB_ENABLED=true
+FIRST_RESPONDER_GITHUB_TOKEN=<fine-grained PAT>
+FIRST_RESPONDER_GITHUB_REPO=you/your-app
+```
+
+```php
+'notifications' => [
+    'channels' => ['telegram', 'github'],
+    'routes'   => ['telegram' => env('TELEGRAM_ALERT_CHAT_ID')],
+],
+```
+
+The token needs exactly one permission: **Issues (read and write)** on the target repository.
+
+**Issue bodies contain your source code. File into private repositories only.**
+
+This runs downstream of everything else, which is the point. The ignore list, redaction, the dedupe window and `max_per_hour` all apply already — a deploy that breaks fifty things cannot open fifty issues, for the same reason it cannot send fifty messages.
+
+Two behaviours worth knowing:
+
+- **The same bug does not become eleven issues.** Issues are keyed to the incident fingerprint by a marker in the body, so a recurrence comments on the existing issue instead of filing a new one. If that issue has been closed, the recurrence is treated as a regression and gets its own.
+- **A diagnosis the model flagged as uncertain is not filed.** It still reaches chat. A missing diagnosis is different from an unsure one — with no AI configured, everything is filed as normal.
+
+Split frontend and backend into separate repositories? Route by file extension:
+
+```php
+'repo_map' => [
+    'ts,tsx,js,jsx' => env('FIRST_RESPONDER_GITHUB_REPO_WEB'),
+],
+```
+
+Anything unmatched falls through to `repo`. Set `FIRST_RESPONDER_GITHUB_DRY_RUN=true` for a day first — it logs what it would file and files nothing.
+
+---
+
 ## Configuration worth knowing
 
 | Key | Default | |
@@ -240,6 +280,10 @@ Sentry is optional. The package works standalone.
 | `max_frames` | `3` | |
 | `redact` | `true` | |
 | `word_limit` | `80` | The message is read on a phone |
+| `github.enabled` | `false` | Needs a token as well |
+| `github.only_confident` | `true` | Withholds unsure diagnoses; a missing one still files |
+| `github.registry_ttl_days` | `30` | How long a fingerprint stays tied to its issue |
+| `github.dry_run` | `false` | Logs what it would file, files nothing |
 
 The default ignore list covers things that aren't bugs. A 404 means somebody typed a URL; a 419 means a tab sat open too long. Reporting those teaches you to ignore the channel.
 

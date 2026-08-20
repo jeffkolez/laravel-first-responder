@@ -6,6 +6,7 @@ namespace JeffKolez\FirstResponder;
 
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Notifications\ChannelManager;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use JeffKolez\FirstResponder\Console\TestCommand;
@@ -14,9 +15,13 @@ use JeffKolez\FirstResponder\Diagnosticians\AnthropicDiagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\NullDiagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\OpenAiDiagnostician;
 use JeffKolez\FirstResponder\Http\Controllers\SentryWebhookController;
+use JeffKolez\FirstResponder\Notifications\Channels\GitHubChannel;
+use JeffKolez\FirstResponder\Sinks\GitHubClient;
 use JeffKolez\FirstResponder\Support\Gatekeeper;
+use JeffKolez\FirstResponder\Support\IssueRegistry;
 use JeffKolez\FirstResponder\Support\PromptBuilder;
 use JeffKolez\FirstResponder\Support\Redactor;
+use JeffKolez\FirstResponder\Support\RepoRouter;
 use JeffKolez\FirstResponder\Support\SourceExtractor;
 use Psr\Log\LoggerInterface;
 
@@ -61,6 +66,8 @@ class FirstResponderServiceProvider extends ServiceProvider
 
         $this->app->singleton(Diagnostician::class, fn (Application $app) => $this->makeDiagnostician($app));
 
+        $this->registerGitHub();
+
         $this->app->singleton(FirstResponder::class, function (Application $app) {
             $config = (array) $app['config']->get('first-responder', []);
             $config['environment'] = $app->environment();
@@ -88,6 +95,65 @@ class FirstResponderServiceProvider extends ServiceProvider
         }
 
         $this->registerSentryRoute();
+    }
+
+    /**
+     * The GitHub issue channel.
+     *
+     * Registered unconditionally, even when the feature is off. The channel
+     * itself checks `github.enabled` and returns; doing the check here instead
+     * would mean that naming 'github' in the channel list while it is disabled
+     * throws "Driver [github] not supported", which sends people looking for a
+     * missing package rather than at their own config.
+     *
+     * callAfterResolving rather than Notification::extend so the ChannelManager
+     * is only built if the application actually sends a notification.
+     */
+    private function registerGitHub(): void
+    {
+        $this->app->singleton(GitHubClient::class, function (Application $app) {
+            $config = (array) $app['config']->get('first-responder.github', []);
+
+            return new GitHubClient(
+                (string) ($config['token'] ?? ''),
+                $app->make(LoggerInterface::class),
+                (string) ($config['base_url'] ?? 'https://api.github.com'),
+                (int) ($config['timeout'] ?? 15),
+            );
+        });
+
+        $this->app->singleton(RepoRouter::class, function (Application $app) {
+            $config = (array) $app['config']->get('first-responder.github', []);
+
+            return new RepoRouter(
+                $config['repo'] ?? null,
+                array_filter((array) ($config['repo_map'] ?? [])),
+            );
+        });
+
+        $this->app->singleton(IssueRegistry::class, function (Application $app) {
+            $config = (array) $app['config']->get('first-responder.github', []);
+
+            return new IssueRegistry(
+                $app->make(CacheFactory::class)->store(),
+                $app->make(GitHubClient::class),
+                (int) ($config['registry_ttl_days'] ?? 30),
+            );
+        });
+
+        $this->app->singleton(GitHubChannel::class, function (Application $app) {
+            return new GitHubChannel(
+                $app->make(GitHubClient::class),
+                $app->make(IssueRegistry::class),
+                $app->make(RepoRouter::class),
+                (array) $app['config']->get('first-responder.github', []),
+                $app->make(LoggerInterface::class),
+            );
+        });
+
+        $this->callAfterResolving(ChannelManager::class, function (ChannelManager $manager, Application $app) {
+            $manager->extend('github', fn () => $app->make(GitHubChannel::class));
+        });
     }
 
     /**
@@ -155,6 +221,10 @@ class FirstResponderServiceProvider extends ServiceProvider
             Redactor::class,
             SourceExtractor::class,
             PromptBuilder::class,
+            GitHubClient::class,
+            GitHubChannel::class,
+            IssueRegistry::class,
+            RepoRouter::class,
             'first-responder',
         ];
     }

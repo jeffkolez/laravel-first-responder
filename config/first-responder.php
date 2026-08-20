@@ -194,6 +194,68 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | GitHub issues (optional)
+    |--------------------------------------------------------------------------
+    |
+    | Add 'github' to the channels above and every incident worth acting on is
+    | filed as an issue, alongside the chat message rather than instead of it.
+    | Chat reaches a person in a minute; an issue is where the work goes.
+    |
+    | Off by default, and it stays off until both `enabled` and a token are set.
+    |
+    | The token needs one permission: Issues (read and write) on the target
+    | repositories. Issue bodies contain your source code, so file them into
+    | private repositories only.
+    |
+    | `repo_map` is for applications split across repositories — a PHP API and a
+    | JavaScript frontend reporting into one error tracker, say. Keys are
+    | comma-separated file extensions, matched against the innermost in-app
+    | frame; anything unmatched falls through to `repo`.
+    |
+    | `only_confident` withholds diagnoses the model flagged as uncertain. A
+    | missing diagnosis is still filed: "no AI configured" and "the AI is unsure"
+    | are different things.
+    |
+    | Note that reports here are already capped by `max_per_hour` above, because
+    | this runs downstream of it. A deploy that breaks fifty things cannot open
+    | fifty issues.
+    |
+    */
+
+    'github' => [
+
+        'enabled' => env('FIRST_RESPONDER_GITHUB_ENABLED', false),
+
+        'token' => env('FIRST_RESPONDER_GITHUB_TOKEN'),
+
+        'repo' => env('FIRST_RESPONDER_GITHUB_REPO'),
+
+        'repo_map' => [
+            // 'ts,tsx,js,jsx,mjs' => env('FIRST_RESPONDER_GITHUB_REPO_WEB'),
+        ],
+
+        'labels' => ['bug', 'first-responder'],
+
+        'only_confident' => true,
+
+        // Log what would be filed, file nothing. Worth switching on for a day
+        // before you point this at a repository people are watching.
+        'dry_run' => env('FIRST_RESPONDER_GITHUB_DRY_RUN', false),
+
+        // How long a fingerprint stays mapped to its issue. This is the second,
+        // longer-lived layer of deduplication: `dedupe_minutes` above stops the
+        // chat channel repeating itself, this stops one bug becoming eleven
+        // issues over a week.
+        'registry_ttl_days' => 30,
+
+        'base_url' => 'https://api.github.com',
+
+        'timeout' => 15,
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Sentry ingest (optional)
     |--------------------------------------------------------------------------
     |
