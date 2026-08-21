@@ -59,6 +59,21 @@ final class Recipients
             static fn ($route) => $route !== null && $route !== '' && $route !== []
         ));
 
-        return array_values(array_diff($channels, $routed));
+        return array_values(array_diff($channels, $routed, self::SELF_ROUTING));
     }
+
+    /**
+     * Channels that know their own destination.
+     *
+     * A notification route answers "where does this go", and for a chat channel
+     * that is a chat id somebody has to supply. The GitHub channel works out
+     * its repository from its own config block and from the incident's own
+     * stack frames, so it has nothing to be routed to — a route is accepted as
+     * an optional default, not required.
+     *
+     * Without this exemption, naming `github` in the channel list reports a
+     * misconfiguration that does not exist, and first-responder:test exits
+     * non-zero on a setup that works.
+     */
+    private const SELF_ROUTING = ['github'];
 }
