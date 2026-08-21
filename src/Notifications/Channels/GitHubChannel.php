@@ -53,12 +53,6 @@ final class GitHubChannel
             return;
         }
 
-        if (! $this->github->configured()) {
-            $this->logger?->warning('first-responder: GitHub is enabled but no token is set; nothing filed.');
-
-            return;
-        }
-
         $incident = $notification->incident;
         $diagnosis = $notification->diagnosis;
 
@@ -78,11 +72,25 @@ final class GitHubChannel
 
         $fingerprint = Fingerprint::for($incident);
 
+        // Checked before the token, deliberately. A dry run is exactly what you
+        // do BEFORE making a token — to see what a day's errors would produce
+        // without creating anything, or granting anything write access.
         if ($this->config['dry_run'] ?? false) {
             $this->logger?->info('first-responder: would file a GitHub issue.', [
                 'repo' => $repo,
                 'title' => IssueBody::title($incident),
+                'labels' => (array) ($this->config['labels'] ?? []),
+                'fingerprint' => $fingerprint,
+                // Whether this would open a new issue or comment on an existing
+                // one cannot be known without asking GitHub, which a dry run
+                // does not do.
             ]);
+
+            return;
+        }
+
+        if (! $this->github->configured()) {
+            $this->logger?->warning('first-responder: GitHub is enabled but no token is set; nothing filed.');
 
             return;
         }
