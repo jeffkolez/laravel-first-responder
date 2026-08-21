@@ -240,7 +240,15 @@ return [
         // this label; the package only ever adds it, and never merges anything.
         'agent_label' => env('FIRST_RESPONDER_AGENT_LABEL', 'agent-fix'),
 
-        'only_confident' => true,
+        // Withhold diagnoses the model flagged as uncertain — they still reach
+        // chat, they just do not become tickets. An agent handed a vague
+        // diagnosis produces a confident wrong patch.
+        //
+        // Worth switching off temporarily while you are testing: the exception
+        // thrown by first-responder:test says outright that nothing is broken,
+        // so the model correctly refuses to diagnose it, so nothing is ever
+        // filed — which looks exactly like a broken channel.
+        'only_confident' => env('FIRST_RESPONDER_GITHUB_ONLY_CONFIDENT', true),
 
         // Log what would be filed, file nothing. Worth switching on for a day
         // before you point this at a repository people are watching.
