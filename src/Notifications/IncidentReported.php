@@ -11,6 +11,7 @@ use JeffKolez\FirstResponder\Support\ApprovalTokens;
 use JeffKolez\FirstResponder\Support\Diagnosis;
 use JeffKolez\FirstResponder\Support\Fingerprint;
 use JeffKolez\FirstResponder\Support\Incident;
+use JeffKolez\FirstResponder\Support\IssueRegistry;
 use JeffKolez\FirstResponder\Support\RepoRouter;
 use Throwable;
 
@@ -90,7 +91,39 @@ class IncidentReported extends Notification
             $lines[] = $this->incident->externalUrl;
         }
 
+        if ($issue = $this->issueUrl()) {
+            $lines[] = '';
+            $lines[] = $issue;
+        }
+
         return implode("\n", $lines);
+    }
+
+    /**
+     * The issue this incident was filed as, if it has been.
+     *
+     * A link is the whole point of filing one: the alert tells you something
+     * broke, and the issue is where you go to do anything about it — read the
+     * source, label it for an agent, or close it.
+     *
+     * Looked up from the cache rather than passed in, because Laravel clones
+     * the notification for each channel, so the GitHub channel's copy is not
+     * the one the chat channel renders. See IssueRegistry::rememberUrl for the
+     * ordering caveat: with the chat channel listed first, the very first alert
+     * for a new error has no link yet.
+     */
+    private function issueUrl(): ?string
+    {
+        try {
+            if (! (bool) config('first-responder.github.enabled', false)) {
+                return null;
+            }
+
+            return app(IssueRegistry::class)->urlFor(Fingerprint::for($this->incident));
+        } catch (Throwable) {
+            // Never let decorating an alert cost you the alert.
+            return null;
+        }
     }
 
     /**

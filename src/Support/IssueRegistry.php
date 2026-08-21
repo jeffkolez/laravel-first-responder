@@ -34,6 +34,8 @@ final class IssueRegistry
 {
     private const PREFIX = 'first-responder:gh:';
 
+    private const URL_PREFIX = 'first-responder:gh:url:';
+
     public function __construct(
         private readonly Cache $cache,
         private readonly GitHubClient $github,
@@ -81,6 +83,38 @@ final class IssueRegistry
     public function forget(string $repo, string $fingerprint): void
     {
         $this->cache->forget($this->key($repo, $fingerprint));
+    }
+
+    /**
+     * Where the chat message can find the issue this incident became.
+     *
+     * Kept separate from the repo-keyed mapping above, and keyed on the
+     * fingerprint alone, because the reader is a notification that knows what
+     * broke but has no business working out which repository it was filed in.
+     *
+     * The cache is the only way to pass this between the two channels at all:
+     * Laravel clones the notification per channel, so anything the GitHub
+     * channel sets on the object dies with its own copy.
+     *
+     * There is an ordering consequence worth knowing. If the chat channel is
+     * listed first it renders before the issue exists and the first alert
+     * carries no link — but every later occurrence does, because this entry
+     * outlives them. Listing 'github' first avoids the gap entirely.
+     */
+    public function rememberUrl(string $fingerprint, string $url): void
+    {
+        if ($this->ttlDays <= 0) {
+            return;
+        }
+
+        $this->cache->put(self::URL_PREFIX . $fingerprint, $url, $this->ttlDays * 86400);
+    }
+
+    public function urlFor(string $fingerprint): ?string
+    {
+        $url = $this->cache->get(self::URL_PREFIX . $fingerprint);
+
+        return is_string($url) && $url !== '' ? $url : null;
     }
 
     private function key(string $repo, string $fingerprint): string

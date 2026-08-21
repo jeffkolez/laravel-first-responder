@@ -108,7 +108,23 @@ final class GitHubChannel
 
         if ($number !== null) {
             $this->registry->remember($repo, $fingerprint, $number);
+            $this->rememberUrl($repo, $fingerprint, $number);
         }
+    }
+
+    /**
+     * Built rather than read back from the API response.
+     *
+     * The create call returns an html_url, but taking it would mean widening
+     * GitHubClient::createIssue's return type for one string that is entirely
+     * derivable. The shape of a GitHub issue URL is not going to move.
+     */
+    private function rememberUrl(string $repo, string $fingerprint, int $number): void
+    {
+        $this->registry->rememberUrl(
+            $fingerprint,
+            'https://github.com/' . $repo . '/issues/' . $number
+        );
     }
 
     /**
@@ -138,6 +154,10 @@ final class GitHubChannel
         }
 
         $this->github->comment($repo, $existing, $note);
+
+        // Refreshed on every recurrence, so the link survives a cache flush as
+        // long as the error keeps happening.
+        $this->rememberUrl($repo, $fingerprint, $existing);
 
         return true;
     }
