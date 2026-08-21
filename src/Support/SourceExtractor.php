@@ -39,27 +39,66 @@ final class SourceExtractor
      */
     public function fill(Frame $frame): Frame
     {
-        if ($frame->context() !== '') {
-            return $frame;
+        // A native Throwable has no idea what "your code" means: PHP's trace is
+        // just files, so Incident::fromThrowable marks every frame in-app and a
+        // report would lead with whichever framework file happened to throw.
+        // This object is the only one that knows where the project root is, so
+        // it is the only one that can tell the difference.
+        //
+        // It only ever downgrades. Sentry sends real in_app flags of its own and
+        // a frame it has already called foreign must not be promoted back.
+        $inApp = $frame->inApp && ! $this->isVendor($frame->file);
+
+        $pre = $frame->preContext;
+        $line = $frame->contextLine;
+        $post = $frame->postContext;
+
+        if ($frame->context() === '' && ($lines = $this->read($frame->file, $frame->line)) !== null) {
+            [$pre, $line, $post] = $lines;
         }
 
-        $lines = $this->read($frame->file, $frame->line);
-
-        if ($lines === null) {
+        if ($inApp === $frame->inApp && $line === $frame->contextLine && $pre === $frame->preContext) {
             return $frame;
         }
-
-        [$pre, $line, $post] = $lines;
 
         return new Frame(
             $frame->file,
             $frame->line,
             $frame->function,
-            $frame->inApp,
+            $inApp,
             $pre,
             $line,
             $post,
         );
+    }
+
+    /**
+     * Is this frame a dependency rather than the application?
+     *
+     * Inside the project root the question is exact: it is a dependency if it
+     * sits under vendor/. Outside the root — PHP internals, an eval'd tinker
+     * line, a JavaScript bundle reported through Sentry — there is no root to
+     * measure against, so fall back to looking for the path segment.
+     */
+    private function isVendor(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+
+        $normalised = str_replace('\\', '/', $path);
+
+        if ($this->root !== null) {
+            $root = str_replace('\\', '/', $this->root);
+
+            if (str_starts_with($normalised, $root . '/')) {
+                return str_starts_with($normalised, $root . '/vendor/');
+            }
+        }
+
+        // Slashes on both sides, so a project living at /srv/vendor-app is not
+        // mistaken for a dependency.
+        return str_contains($normalised, '/vendor/');
     }
 
     /**
