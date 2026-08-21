@@ -9,18 +9,14 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Notifications\ChannelManager;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use JeffKolez\FirstResponder\Console\TelegramWebhookCommand;
 use JeffKolez\FirstResponder\Console\TestCommand;
 use JeffKolez\FirstResponder\Contracts\Diagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\AnthropicDiagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\NullDiagnostician;
 use JeffKolez\FirstResponder\Diagnosticians\OpenAiDiagnostician;
-use JeffKolez\FirstResponder\Http\Controllers\ApprovalController;
 use JeffKolez\FirstResponder\Http\Controllers\SentryWebhookController;
 use JeffKolez\FirstResponder\Notifications\Channels\GitHubChannel;
 use JeffKolez\FirstResponder\Sinks\GitHubClient;
-use JeffKolez\FirstResponder\Sinks\TelegramClient;
-use JeffKolez\FirstResponder\Support\ApprovalTokens;
 use JeffKolez\FirstResponder\Support\Gatekeeper;
 use JeffKolez\FirstResponder\Support\IssueRegistry;
 use JeffKolez\FirstResponder\Support\PromptBuilder;
@@ -71,7 +67,6 @@ class FirstResponderServiceProvider extends ServiceProvider
         $this->app->singleton(Diagnostician::class, fn (Application $app) => $this->makeDiagnostician($app));
 
         $this->registerGitHub();
-        $this->registerApprovals();
 
         $this->app->singleton(FirstResponder::class, function (Application $app) {
             $config = (array) $app['config']->get('first-responder', []);
@@ -96,11 +91,10 @@ class FirstResponderServiceProvider extends ServiceProvider
                 __DIR__ . '/../config/first-responder.php' => $this->app->configPath('first-responder.php'),
             ], 'first-responder-config');
 
-            $this->commands([TestCommand::class, TelegramWebhookCommand::class]);
+            $this->commands([TestCommand::class]);
         }
 
         $this->registerSentryRoute();
-        $this->registerApprovalRoute();
     }
 
     /**
@@ -160,55 +154,6 @@ class FirstResponderServiceProvider extends ServiceProvider
         $this->callAfterResolving(ChannelManager::class, function (ChannelManager $manager, Application $app) {
             $manager->extend('github', fn () => $app->make(GitHubChannel::class));
         });
-    }
-
-    /**
-     * The approval buttons.
-     *
-     * ApprovalTokens is registered whether or not the feature is on, because
-     * IncidentReported asks it on every Telegram render and a disabled instance
-     * answering "no" is simpler than a conditional binding that is absent.
-     */
-    private function registerApprovals(): void
-    {
-        $this->app->singleton(TelegramClient::class, function (Application $app) {
-            $config = (array) $app['config']->get('first-responder.approvals', []);
-
-            return new TelegramClient(
-                (string) ($config['bot_token'] ?? ''),
-                $app->make(LoggerInterface::class),
-            );
-        });
-
-        $this->app->singleton(ApprovalTokens::class, function (Application $app) {
-            $config = (array) $app['config']->get('first-responder.approvals', []);
-
-            return new ApprovalTokens(
-                $app->make(CacheFactory::class)->store(),
-                (bool) ($config['enabled'] ?? false),
-                (int) ($config['ttl_hours'] ?? 168),
-            );
-        });
-    }
-
-    /**
-     * As with the Sentry route: no secret, no route. A half-finished setup must
-     * not leave an endpoint that writes labels to a repository standing open.
-     */
-    private function registerApprovalRoute(): void
-    {
-        $config = (array) $this->app['config']->get('first-responder.approvals', []);
-
-        if (! ($config['enabled'] ?? false) || ($config['secret'] ?? '') === '') {
-            return;
-        }
-
-        Route::middleware((array) ($config['middleware'] ?? ['api']))
-            ->post(
-                (string) ($config['path'] ?? 'first-responder/approve'),
-                ApprovalController::class
-            )
-            ->name('first-responder.approve');
     }
 
     /**
@@ -280,8 +225,6 @@ class FirstResponderServiceProvider extends ServiceProvider
             GitHubChannel::class,
             IssueRegistry::class,
             RepoRouter::class,
-            TelegramClient::class,
-            ApprovalTokens::class,
             'first-responder',
         ];
     }

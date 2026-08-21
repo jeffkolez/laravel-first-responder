@@ -83,20 +83,6 @@ final class GitHubClient
         return is_string($state) ? $state === 'open' : null;
     }
 
-    /**
-     * Add a label, creating it if the repository does not have it yet.
-     *
-     * Idempotent: GitHub accepts a label that is already present and changes
-     * nothing. That is what lets the approval tokens tolerate a double-tap or a
-     * webhook retry without any bookkeeping.
-     */
-    public function addLabel(string $repo, int $issue, string $label): bool
-    {
-        return $this->request('post', "/repos/{$repo}/issues/{$issue}/labels", [
-            'labels' => [$label],
-        ]) !== null;
-    }
-
     public function comment(string $repo, int $issue, string $body): bool
     {
         return $this->request('post', "/repos/{$repo}/issues/{$issue}/comments", [
