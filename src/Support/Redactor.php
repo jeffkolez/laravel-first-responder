@@ -174,6 +174,11 @@ final class Redactor
                 array_map(fn ($l) => $this->redact((string) $l), $f->preContext),
                 $f->contextLine === null ? null : $this->redact($f->contextLine),
                 array_map(fn ($l) => $this->redact((string) $l), $f->postContext),
+                // Arguments are the likeliest place in a frame for a real
+                // secret to appear verbatim: a token passed to a client, a
+                // password passed to a hasher. They get the same treatment as
+                // source, and for a better reason.
+                array_map(fn ($a) => $this->redact((string) $a), $f->args),
             );
         }, $incident->frames);
 

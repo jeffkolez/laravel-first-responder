@@ -76,6 +76,8 @@ class TestCommand extends Command
                 : '<fg=yellow>none. Check source_lines and file permissions.</>'
         );
 
+        $this->reportCapture();
+
         /*
          * --queue exists because everything else in this command runs inline,
          * and inline is not how production works. A real error is prepared in
@@ -274,6 +276,43 @@ class TestCommand extends Command
         } catch (Throwable $e) {
             return $e;
         }
+    }
+
+/**
+     * Whether the alert will carry the values that caused the error.
+     *
+     * Worth its own line because both ways of failing here are silent. Capture
+     * switched off produces a perfectly healthy-looking alert with no data in
+     * it; `zend.exception_ignore_args` produces a stack trace with the
+     * arguments quietly missing, and the setting is On in php.ini-production,
+     * so most people have it without ever choosing it.
+     *
+     * This command runs on the command line, where there is no request to
+     * capture — so what it reports is whether capture is configured, not what
+     * a real report would collect.
+     */
+    private function reportCapture(): void
+    {
+        $this->components->twoColumnDetail(
+            'Request capture',
+            config('first-responder.capture.enabled', true)
+                ? '<fg=green>on</> <fg=gray>(url, route, parameters, query'
+                    . (config('first-responder.capture.body', false) ? ', body' : '')
+                    . ')</>'
+                : '<fg=yellow>off. Alerts will not say what data caused the error.</>'
+        );
+
+        $ignoring = filter_var(
+            ini_get('zend.exception_ignore_args'),
+            FILTER_VALIDATE_BOOL
+        );
+
+        $this->components->twoColumnDetail(
+            'Trace arguments',
+            $ignoring
+                ? '<fg=gray>stripped by PHP (zend.exception_ignore_args=On, the production default)</>'
+                : '<fg=green>available</>'
+        );
     }
 
     private function shortName(string $class): string

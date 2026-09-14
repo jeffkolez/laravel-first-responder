@@ -34,6 +34,9 @@ class IncidentReported extends Notification
 {
     use Queueable;
 
+    /** Enough to name the input, not enough to bury the diagnosis. */
+    private const MAX_DATA_LINES = 8;
+
     public function __construct(
         public readonly Incident $incident,
         public readonly ?Diagnosis $diagnosis = null,
@@ -68,14 +71,25 @@ class IncidentReported extends Notification
 
         if ($frames !== []) {
             $lines[] = 'at ' . $frames[0]->location();
+
+            if ($signature = $frames[0]->signature()) {
+                $lines[] = 'in ' . self::clip($signature, 140);
+            }
         }
 
         if ($this->incident->url !== null && $this->incident->url !== '') {
-            $lines[] = 'on ' . $this->incident->url;
+            $method = $this->incident->context['method'] ?? null;
+
+            $lines[] = trim(((string) $method) . ' ' . $this->incident->url);
         }
 
         if ($this->incident->environment !== null && $this->incident->environment !== '') {
             $lines[] = 'env: ' . $this->incident->environment;
+        }
+
+        if ($data = $this->dataLines()) {
+            $lines[] = '';
+            $lines = array_merge($lines, $data);
         }
 
         if ($this->diagnosis !== null && ! $this->diagnosis->isEmpty()) {
@@ -136,6 +150,20 @@ class IncidentReported extends Notification
 
         if ($frames !== []) {
             $mail->line('at ' . $frames[0]->location());
+
+            if ($signature = $frames[0]->signature()) {
+                $mail->line('in ' . self::clip($signature, 140));
+            }
+        }
+
+        if ($this->incident->url !== null && $this->incident->url !== '') {
+            $method = $this->incident->context['method'] ?? null;
+
+            $mail->line(trim(((string) $method) . ' ' . $this->incident->url));
+        }
+
+        foreach ($this->dataLines() as $line) {
+            $mail->line($line);
         }
 
         if ($this->diagnosis !== null && ! $this->diagnosis->isEmpty()) {
@@ -176,6 +204,74 @@ class IncidentReported extends Notification
     public function __toString(): string
     {
         return $this->toText();
+    }
+
+/**
+     * The values this request actually ran with.
+     *
+     * The whole reason this package exists rather than a Log::error is that
+     * somebody should be able to read the alert and know what broke. "Invalid
+     * date format at EventController.php:72" is not that; "Invalid date format
+     * … date: banana19" is. So the input goes in the message, above the fold,
+     * not only in the prompt.
+     *
+     * Ruthlessly capped, because this is read on a phone between other things.
+     * Route parameters come first: they are the part of the request the
+     * application itself picked out as meaningful, which makes them the best
+     * single guess at the offending value. Forensic detail (IP, user agent,
+     * referer) is deliberately left out here and kept for the issue body —
+     * it answers "who did this", and the alert is about "what broke".
+     *
+     * @return string[]
+     */
+    private function dataLines(): array
+    {
+        $context = $this->incident->context;
+        $lines = [];
+
+        foreach ((array) ($context['route_params'] ?? []) as $key => $value) {
+            $lines[] = self::pair((string) $key, $value);
+        }
+
+        foreach ((array) ($context['query'] ?? []) as $key => $value) {
+            $lines[] = self::pair('?' . $key, $value);
+        }
+
+        foreach ((array) ($context['body'] ?? []) as $key => $value) {
+            $lines[] = self::pair($key . ':', $value);
+        }
+
+        if (isset($context['command'])) {
+            $lines[] = self::pair('command', $context['command']);
+        }
+
+        if (isset($context['user_id'])) {
+            $lines[] = self::pair('user', $context['user_id']);
+        }
+
+        // Only the innermost wrapped exception. A chain printed in full pushes
+        // the diagnosis off the screen, and the innermost one is the why.
+        $previous = (array) ($context['previous'] ?? []);
+
+        if ($previous !== []) {
+            $lines[] = 'caused by: ' . self::clip((string) end($previous), 160);
+        }
+
+        return array_slice($lines, 0, self::MAX_DATA_LINES);
+    }
+
+    private static function pair(string $key, mixed $value): string
+    {
+        return $key . ': ' . self::clip(is_scalar($value) || $value === null
+            ? var_export($value, true)
+            : gettype($value), 120);
+    }
+
+    private static function clip(string $value, int $limit): string
+    {
+        $value = trim((string) preg_replace('/\s+/u', ' ', $value));
+
+        return mb_strlen($value) > $limit ? mb_substr($value, 0, $limit - 1) . '…' : $value;
     }
 
     private function severityMark(): string

@@ -115,6 +115,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Request capture
+    |--------------------------------------------------------------------------
+    |
+    | What the application was doing when it broke, captured at report time and
+    | carried into both the alert and the diagnosis.
+    |
+    | This is the difference between an alert you can act on and an alert that
+    | sends you to the logs. Most bad input arrives in the URL, so the URL,
+    | the route and its parameters are almost always the answer to "with what
+    | data" — and they cost nothing to collect.
+    |
+    | `body` is off, and that is the considered default rather than laziness.
+    | Request bodies carry passwords, card numbers and whatever else your forms
+    | collect; the redactor is good but it is a net, not a wall. Turn it on if
+    | your bugs live in POST handlers and you have read what the redactor does
+    | and does not catch. `body_except` is masked before anything is captured.
+    |
+    | Note also that PHP itself withholds stack-trace arguments in production:
+    | php.ini-production sets `zend.exception_ignore_args=On`. When arguments
+    | are available they are shown; nothing here depends on them.
+    |
+    */
+
+    'capture' => [
+
+        'enabled' => env('FIRST_RESPONDER_CAPTURE', true),
+
+        'body' => env('FIRST_RESPONDER_CAPTURE_BODY', false),
+
+        'body_except' => [
+            'password', 'password_confirmation', 'current_password',
+            'token', 'secret', 'api_key', 'card', 'cvv', 'number',
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Source context
     |--------------------------------------------------------------------------
     |

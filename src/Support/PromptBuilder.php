@@ -56,11 +56,13 @@ final class PromptBuilder
 
         foreach ($incident->significantFrames($this->maxFrames) as $i => $frame) {
             $parts[] = '';
+            $signature = $frame->signature();
+
             $parts[] = sprintf(
                 'FRAME %d: %s%s',
                 $i + 1,
                 $frame->location(),
-                $frame->function === null ? '' : ' in ' . $frame->function . '()'
+                $signature === null ? '' : ' in ' . $signature
             );
 
             $context = $frame->context();
@@ -75,7 +77,7 @@ final class PromptBuilder
 
             if (is_string($encoded) && mb_strlen($encoded) <= 2000) {
                 $parts[] = '';
-                $parts[] = 'CONTEXT:';
+                $parts[] = 'REQUEST AND CONTEXT (the real values this ran with):';
                 $parts[] = $encoded;
             }
         }
@@ -84,10 +86,13 @@ final class PromptBuilder
         $parts[] = sprintf(
             'In no more than %d words, plain text, no markdown, no preamble: give the '
             . 'most likely cause and the single change that would fix it. Name the file '
-            . 'and line. Some values above may show as %s. That is deliberate '
-            . 'secret-scrubbing, so do not treat it as the bug. If the information above '
-            . 'is not enough to be reasonably sure, begin your answer with "UNSURE:" and '
-            . 'say what you would need to look at instead of guessing.',
+            . 'and line, and quote the actual input value that triggered it if one '
+            . 'appears above — the URL, a route parameter, a query value or a call '
+            . 'argument. Do not ask to see values that are already given. Some values '
+            . 'above may show as %s. That is deliberate secret-scrubbing, so do not '
+            . 'treat it as the bug. If the information above is not enough to be '
+            . 'reasonably sure, begin your answer with "UNSURE:" and say what you would '
+            . 'need to look at instead of guessing.',
             $this->wordLimit,
             Redactor::MASK
         );

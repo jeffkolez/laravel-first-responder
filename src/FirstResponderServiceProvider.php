@@ -22,6 +22,7 @@ use JeffKolez\FirstResponder\Support\IssueRegistry;
 use JeffKolez\FirstResponder\Support\PromptBuilder;
 use JeffKolez\FirstResponder\Support\Redactor;
 use JeffKolez\FirstResponder\Support\RepoRouter;
+use JeffKolez\FirstResponder\Support\RequestContext;
 use JeffKolez\FirstResponder\Support\SourceExtractor;
 use Psr\Log\LoggerInterface;
 
@@ -46,6 +47,13 @@ class FirstResponderServiceProvider extends ServiceProvider
                 // needs the actual secret values.
                 null,
                 (bool) $app['config']->get('first-responder.redact_emails', true),
+            );
+        });
+
+        $this->app->singleton(RequestContext::class, function (Application $app) {
+            return new RequestContext(
+                $app,
+                (array) $app['config']->get('first-responder.capture', []),
             );
         });
 
@@ -76,6 +84,7 @@ class FirstResponderServiceProvider extends ServiceProvider
                 $app->make(Gatekeeper::class),
                 $app->make(SourceExtractor::class),
                 $app->make(Redactor::class),
+                $app->make(RequestContext::class),
                 $app->make(\Illuminate\Contracts\Bus\Dispatcher::class),
                 $config,
             );
@@ -220,6 +229,7 @@ class FirstResponderServiceProvider extends ServiceProvider
             Gatekeeper::class,
             Redactor::class,
             SourceExtractor::class,
+            RequestContext::class,
             PromptBuilder::class,
             GitHubClient::class,
             GitHubChannel::class,

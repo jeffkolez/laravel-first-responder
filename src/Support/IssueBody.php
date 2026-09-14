@@ -33,6 +33,9 @@ final class IssueBody
     /** GitHub truncates past 256; leave room rather than meet the limit exactly. */
     private const MAX_TITLE = 200;
 
+    /** A request block past this is a payload dump, not context. */
+    private const MAX_CONTEXT = 4000;
+
     public static function marker(string $fingerprint): string
     {
         return self::MARKER_PREFIX . preg_replace('/[^A-Za-z0-9-]+/', '-', $fingerprint);
@@ -69,6 +72,10 @@ final class IssueBody
             $sections[] = $source;
         }
 
+        if ($context = self::context($incident)) {
+            $sections[] = $context;
+        }
+
         if (self::isUsableUrl($incident->externalUrl)) {
             $sections[] = '[View in the error tracker](' . $incident->externalUrl . ')';
         }
@@ -86,6 +93,10 @@ final class IssueBody
 
         if ($frames !== []) {
             $parts[] = '`' . $frames[0]->location() . '`';
+
+            if ($signature = $frames[0]->signature()) {
+                $parts[] = '`' . self::escape($signature) . '`';
+            }
         }
 
         if (($incident->environment ?? '') !== '') {
@@ -105,6 +116,44 @@ final class IssueBody
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Everything the request was carrying, as a table.
+     *
+     * The chat alert shows the few values most likely to be the bug. This
+     * shows all of them, because the two readers are different: chat is read
+     * by someone deciding whether to care, the issue by whoever — or whatever
+     * — sits down to fix it, and that reader wants the user agent, the
+     * referer and the IP that the alert correctly left out.
+     *
+     * JSON in a fence, not a markdown table: values here are arbitrary strings
+     * from a request, and a pipe character in one of them would shred a table.
+     */
+    private static function context(Incident $incident): ?string
+    {
+        $context = $incident->context;
+
+        if ($context === []) {
+            return null;
+        }
+
+        $encoded = json_encode(
+            $context,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+
+        if (! is_string($encoded)) {
+            return null;
+        }
+
+        if (mb_strlen($encoded) > self::MAX_CONTEXT) {
+            $encoded = mb_substr($encoded, 0, self::MAX_CONTEXT) . "\n… truncated";
+        }
+
+        $fence = str_repeat('`', max(3, self::longestBacktickRun($encoded) + 1));
+
+        return "### Request\n\n" . $fence . "json\n" . $encoded . "\n" . $fence;
     }
 
     /**

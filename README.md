@@ -5,8 +5,11 @@
 ```
 🔴 TypeError: Call to a member function name() on null
 at app/Http/Controllers/ProfileController.php:42
-on https://example.com/profile/ted-bundy
+in ProfileController->show('ted-bundyy')
+GET https://example.com/profile/ted-bundyy
 env: production
+
+slug: 'ted-bundyy'
 
 Likely cause
 Killer::find() returns null when the slug doesn't match and line 42
@@ -14,7 +17,9 @@ dereferences it immediately. Use findOrFail(), or guard the null before
 reading ->name.
 ```
 
-The actual line, the code around it, and a read on what went wrong. Sent to Telegram, Slack, Discord, or wherever you already look.
+The actual line, the code around it, the values it ran with, and a read on what went wrong. Sent to Telegram, Slack, Discord, or wherever you already look.
+
+That fourth thing is the one most alerting misses. `TypeError at ProfileController.php:42` tells you a bug exists somewhere you already knew to look; the next move is always to go and find out what was being asked for. `slug: 'ted-bundyy'` ends it on the spot.
 
 ---
 
@@ -160,6 +165,41 @@ That runs the genuine path: Laravel's handler, your reportable callback, the gat
 
 ---
 
+## What data caused it
+
+Every report carries the request that produced it, captured at the moment it broke:
+
+| | |
+|---|---|
+| `method`, URL | The single most useful fact about a GET that failed |
+| `route`, `route_params` | The part of the URL your application itself picked out |
+| `query` | |
+| `user_id`, `ip`, `user_agent`, `referer` | Who. Kept for the issue body; left out of chat |
+| `previous` | The wrapped exception chain — a wrapper says what failed, the innermost one says why |
+
+Chat gets the values most likely to *be* the bug. The GitHub issue gets all of it. The model gets all of it too, so it stops replying "I would need to see the contents of `$date`".
+
+**Request bodies are not captured.** Bodies carry passwords and card numbers, and a broken POST is usually reproducible from the route alone — the redactor is good, but the safest data is data you never collected. If your bugs live in POST handlers:
+
+```php
+'capture' => [
+    'body' => true,
+    'body_except' => ['password', 'token', 'card'],
+],
+```
+
+Set `capture.enabled` to `false` to collect nothing.
+
+### Stack trace arguments
+
+When PHP provides them, the failing frame is rendered as the call that made it: `ProfileController->show('ted-bundyy')`.
+
+Usually PHP does not provide them. `php.ini-production` ships `zend.exception_ignore_args=On`, which strips arguments from every trace before anything can read them, so most production installs see `show()` instead. `php artisan first-responder:test` tells you which you have.
+
+Nothing depends on them — the URL and route parameters are the reliable answer to "with what data", and they are always there. If you want arguments anyway, the setting is `PHP_INI_ALL`, so `ini_set('zend.exception_ignore_args', '0')` early in `public/index.php` turns them on. Be deliberate about it: it makes *every* stack trace in the application fatter, and puts argument values into any log that renders one.
+
+---
+
 ## Your code does not leak
 
 Diagnosing an error means sending real source and real request data to a third party. That is a new egress path out of your production app, and a reasonable person will want to know what leaves.
@@ -277,6 +317,8 @@ Anything unmatched falls through to `repo`. Set `FIRST_RESPONDER_GITHUB_DRY_RUN=
 | `ignore` | 404s, validation, auth, CSRF | Subclasses match too |
 | `dedupe_minutes` | `60` | `0` disables |
 | `max_per_hour` | `20` | `0` disables |
+| `capture.enabled` | `true` | URL, route, parameters, query |
+| `capture.body` | `false` | Off deliberately — see above |
 | `source_lines` | `5` | Lines either side of the failure |
 | `max_frames` | `3` | |
 | `redact` | `true` | |

@@ -47,6 +47,7 @@ abstract class TestCase extends Orchestra
             \JeffKolez\FirstResponder\Support\Gatekeeper::class,
             \JeffKolez\FirstResponder\Support\Redactor::class,
             \JeffKolez\FirstResponder\Support\SourceExtractor::class,
+            \JeffKolez\FirstResponder\Support\RequestContext::class,
             \JeffKolez\FirstResponder\Support\PromptBuilder::class,
             \JeffKolez\FirstResponder\Contracts\Diagnostician::class,
             \JeffKolez\FirstResponder\Sinks\GitHubClient::class,

@@ -10,6 +10,7 @@ use JeffKolez\FirstResponder\Support\Fingerprint;
 use JeffKolez\FirstResponder\Support\Gatekeeper;
 use JeffKolez\FirstResponder\Support\Incident;
 use JeffKolez\FirstResponder\Support\Redactor;
+use JeffKolez\FirstResponder\Support\RequestContext;
 use JeffKolez\FirstResponder\Support\SourceExtractor;
 use Throwable;
 
@@ -19,17 +20,19 @@ use Throwable;
  * Order of operations, and why it is this order
  * ---------------------------------------------
  * 1. filter:   is this worth reporting at all?
- * 2. enrich:   attach source context from disk now, while the deployed code
+ * 2. observe:  attach the request that broke, now, while it still exists. By
+ *              the time the queued job runs there is no request to ask.
+ * 3. enrich:   attach source context from disk now, while the deployed code
  *              still matches the code that threw. Do it in the queued job
  *              instead and a deploy between the throw and the job running
  *              gives you the wrong lines, confidently presented.
- * 3. redact:   before anything is serialised. The queue payload lands in
+ * 4. redact:   before anything is serialised. The queue payload lands in
  *              Redis or a database table, and secrets sitting in a jobs table
  *              are a leak whether or not a model ever sees them. Redacting
  *              after dequeue would protect the model and not the queue.
- * 4. gatekeep: claim the fingerprint and spend budget before dispatching, so
+ * 5. gatekeep: claim the fingerprint and spend budget before dispatching, so
  *              a storm never creates the jobs.
- * 5. dispatch: the slow part (diagnosis, delivery) happens off the request.
+ * 6. dispatch: the slow part (diagnosis, delivery) happens off the request.
  */
 final class FirstResponder
 {
@@ -40,6 +43,7 @@ final class FirstResponder
         private readonly Gatekeeper $gatekeeper,
         private readonly SourceExtractor $source,
         private readonly Redactor $redactor,
+        private readonly RequestContext $request,
         private readonly Dispatcher $bus,
         private readonly array $config,
     ) {
@@ -63,6 +67,19 @@ final class FirstResponder
 
         if (! $this->shouldReport($incident)) {
             return false;
+        }
+
+        /*
+         * Only for a raw Throwable. An Incident handed in already has a
+         * provenance — the Sentry route builds one from a webhook payload, and
+         * the "current request" there is the webhook itself. Describing the
+         * delivery of the news as though it were the event would be worse than
+         * describing nothing.
+         */
+        if (! $subject instanceof Incident) {
+            $captured = $this->request->capture();
+
+            $incident = $incident->withRequest($captured['url'], $captured['context']);
         }
 
         $incident = $this->prepare($incident);
