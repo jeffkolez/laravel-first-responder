@@ -76,6 +76,10 @@ final class IssueBody
             $sections[] = $context;
         }
 
+        foreach (self::code($incident) as $block) {
+            $sections[] = $block;
+        }
+
         if (self::isUsableUrl($incident->externalUrl)) {
             $sections[] = '[View in the error tracker](' . $incident->externalUrl . ')';
         }
@@ -132,7 +136,7 @@ final class IssueBody
      */
     private static function context(Incident $incident): ?string
     {
-        $context = $incident->context;
+        $context = $incident->facts();
 
         if ($context === []) {
             return null;
@@ -184,6 +188,29 @@ final class IssueBody
             . $fence . self::languageOf($frames[0]->file) . "\n"
             . $context . "\n"
             . $fence;
+    }
+
+    /**
+     * The application source the diagnosis was made against.
+     *
+     * Worth the length here in a way it is not in chat. Whoever picks this up
+     * — a person or an agent — needs to see what the model saw, both to check
+     * the diagnosis and to make the change without opening the repository.
+     *
+     * @return string[]
+     */
+    private static function code(Incident $incident): array
+    {
+        $blocks = [];
+
+        foreach ($incident->code() as $label => $source) {
+            $fence = str_repeat('`', max(3, self::longestBacktickRun($source) + 1));
+
+            $blocks[] = '### ' . self::escape($label) . "\n\n"
+                . $fence . "php\n" . $source . "\n" . $fence;
+        }
+
+        return $blocks;
     }
 
     private static function longestBacktickRun(string $text): int

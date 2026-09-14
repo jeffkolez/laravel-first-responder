@@ -315,6 +315,60 @@ final class Incident
     }
 
     /**
+     * The key under which collected source lives inside context.
+     *
+     * Kept in context rather than promoted to its own constructor argument so
+     * that it serialises, redacts and survives the queue with everything else
+     * and no call site has to learn a new positional parameter. It is pulled
+     * back out for rendering, because code in a JSON blob is unreadable to a
+     * person and expensive for a model.
+     */
+    public const CODE_KEY = 'code';
+
+    /**
+     * @param  array<string, string>  $code  label => numbered source
+     */
+    public function withCode(array $code): self
+    {
+        return new self(
+            $this->type,
+            $this->message,
+            $this->frames,
+            $this->url,
+            $this->environment,
+            $this->release,
+            $this->level,
+            [self::CODE_KEY => $code] + $this->context,
+            $this->externalId,
+            $this->externalUrl,
+        );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function code(): array
+    {
+        $code = $this->context[self::CODE_KEY] ?? [];
+
+        return is_array($code) ? $code : [];
+    }
+
+    /**
+     * Context with the source removed, for anything that renders the rest.
+     *
+     * @return array<string, mixed>
+     */
+    public function facts(): array
+    {
+        $context = $this->context;
+
+        unset($context[self::CODE_KEY]);
+
+        return $context;
+    }
+
+    /**
      * A copy with request details filled in where this incident has none.
      *
      * Fill, not overwrite. An incident that arrived from Sentry already carries

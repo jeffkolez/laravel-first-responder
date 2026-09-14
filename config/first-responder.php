@@ -167,6 +167,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Read the surrounding code
+    |--------------------------------------------------------------------------
+    |
+    | Five lines around the failure says what threw. It rarely says what went
+    | wrong, because the two are almost never on the same line — the bad regex
+    | is fifteen lines up and the method that returned null is in another file.
+    | Given only the throw, a model says "verify the input format", which is
+    | the sentence the alert existed to save you from writing.
+    |
+    | So the whole enclosing method is sent, plus the bodies of up to
+    | `max_symbols` of your own methods that it calls near the failure,
+    | line-numbered so the answer can cite a line.
+    |
+    | Only files under base_path and outside vendor are read. Framework
+    | internals are excluded on purpose: the model already knows what
+    | Cache::remember does, and sending it is noise and money.
+    |
+    | Turn this off if code must not leave your network — but note that
+    | `source_lines` already sends some, so the switch you want there is
+    | `diagnostician => 'null'`, or an OpenAI-compatible base_url pointed at
+    | something you host.
+    |
+    */
+
+    'read_code' => env('FIRST_RESPONDER_READ_CODE', true),
+
+    'max_symbols' => 3,
+
+    /*
+    |--------------------------------------------------------------------------
     | Diagnostician
     |--------------------------------------------------------------------------
     |

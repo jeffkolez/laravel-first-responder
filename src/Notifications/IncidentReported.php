@@ -226,7 +226,7 @@ class IncidentReported extends Notification
      */
     private function dataLines(): array
     {
-        $context = $this->incident->context;
+        $context = $this->incident->facts();
         $lines = [];
 
         foreach ((array) ($context['route_params'] ?? []) as $key => $value) {

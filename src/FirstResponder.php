@@ -6,6 +6,7 @@ namespace JeffKolez\FirstResponder;
 
 use Illuminate\Contracts\Bus\Dispatcher;
 use JeffKolez\FirstResponder\Jobs\RespondToIncident;
+use JeffKolez\FirstResponder\Support\CodeContext;
 use JeffKolez\FirstResponder\Support\Fingerprint;
 use JeffKolez\FirstResponder\Support\Gatekeeper;
 use JeffKolez\FirstResponder\Support\Incident;
@@ -42,6 +43,7 @@ final class FirstResponder
     public function __construct(
         private readonly Gatekeeper $gatekeeper,
         private readonly SourceExtractor $source,
+        private readonly CodeContext $code,
         private readonly Redactor $redactor,
         private readonly RequestContext $request,
         private readonly Dispatcher $bus,
@@ -118,7 +120,7 @@ final class FirstResponder
     {
         $frames = $this->source->fillAll($incident->frames);
 
-        $enriched = new Incident(
+        $located = new Incident(
             $incident->type,
             $incident->message,
             $frames,
@@ -130,6 +132,16 @@ final class FirstResponder
             $incident->externalId,
             $incident->externalUrl,
         );
+
+        /*
+         * Read from disk here, for the same reason the source window is: a
+         * deploy between the throw and the queued job would hand the model a
+         * different version of the method than the one that failed, and it
+         * would diagnose it confidently.
+         */
+        $code = $this->code->collect($located);
+
+        $enriched = $code === [] ? $located : $located->withCode($code);
 
         return ($this->config['redact'] ?? true)
             ? $this->redactor->redactIncident($enriched)

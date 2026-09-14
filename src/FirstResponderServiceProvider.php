@@ -17,6 +17,7 @@ use JeffKolez\FirstResponder\Diagnosticians\OpenAiDiagnostician;
 use JeffKolez\FirstResponder\Http\Controllers\SentryWebhookController;
 use JeffKolez\FirstResponder\Notifications\Channels\GitHubChannel;
 use JeffKolez\FirstResponder\Sinks\GitHubClient;
+use JeffKolez\FirstResponder\Support\CodeContext;
 use JeffKolez\FirstResponder\Support\Gatekeeper;
 use JeffKolez\FirstResponder\Support\IssueRegistry;
 use JeffKolez\FirstResponder\Support\PromptBuilder;
@@ -64,6 +65,14 @@ class FirstResponderServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(CodeContext::class, function (Application $app) {
+            return new CodeContext(
+                $app->basePath(),
+                (bool) $app['config']->get('first-responder.read_code', true),
+                (int) $app['config']->get('first-responder.max_symbols', 3),
+            );
+        });
+
         $this->app->singleton(Gatekeeper::class, function (Application $app) {
             return new Gatekeeper(
                 $app->make(CacheFactory::class)->store(),
@@ -83,6 +92,7 @@ class FirstResponderServiceProvider extends ServiceProvider
             return new FirstResponder(
                 $app->make(Gatekeeper::class),
                 $app->make(SourceExtractor::class),
+                $app->make(CodeContext::class),
                 $app->make(Redactor::class),
                 $app->make(RequestContext::class),
                 $app->make(\Illuminate\Contracts\Bus\Dispatcher::class),
@@ -229,6 +239,7 @@ class FirstResponderServiceProvider extends ServiceProvider
             Gatekeeper::class,
             Redactor::class,
             SourceExtractor::class,
+            CodeContext::class,
             RequestContext::class,
             PromptBuilder::class,
             GitHubClient::class,

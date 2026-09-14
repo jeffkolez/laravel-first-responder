@@ -29,8 +29,12 @@ final class PromptBuilder
     public function system(): string
     {
         return 'You are an experienced Laravel and PHP engineer triaging a '
-            . 'production error. You are terse, concrete, and you say when you '
-            . 'do not know.';
+            . 'production error. You are shown the failing line, the method '
+            . 'that contains it, the bodies of the application methods it '
+            . 'calls, and the real request that triggered it. Work out what '
+            . 'happened from those. You are terse and concrete. You reach a '
+            . 'conclusion; you do not hedge, and you do not ask to be shown '
+            . 'things you have already been given.';
     }
 
     public function user(Incident $incident): string
@@ -72,8 +76,10 @@ final class PromptBuilder
             }
         }
 
-        if ($incident->context !== []) {
-            $encoded = json_encode($incident->context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $facts = $incident->facts();
+
+        if ($facts !== []) {
+            $encoded = json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
             if (is_string($encoded) && mb_strlen($encoded) <= 2000) {
                 $parts[] = '';
@@ -82,17 +88,30 @@ final class PromptBuilder
             }
         }
 
+        /*
+         * The application's own source, line-numbered, so the answer can cite
+         * a line rather than describe one. This is the section that decides
+         * whether the reply is a diagnosis or a suggestion to go and look.
+         */
+        foreach ($incident->code() as $label => $source) {
+            $parts[] = '';
+            $parts[] = 'CODE — ' . $label;
+            $parts[] = $source;
+        }
+
         $parts[] = '';
         $parts[] = sprintf(
-            'In no more than %d words, plain text, no markdown, no preamble: give the '
-            . 'most likely cause and the single change that would fix it. Name the file '
-            . 'and line, and quote the actual input value that triggered it if one '
-            . 'appears above — the URL, a route parameter, a query value or a call '
-            . 'argument. Do not ask to see values that are already given. Some values '
-            . 'above may show as %s. That is deliberate secret-scrubbing, so do not '
-            . 'treat it as the bug. If the information above is not enough to be '
-            . 'reasonably sure, begin your answer with "UNSURE:" and say what you would '
-            . 'need to look at instead of guessing.',
+            'In no more than %d words, plain text, no markdown, no preamble: say what '
+            . 'happened and the single change that fixes it. Trace the actual value '
+            . 'through the code above and quote it. Cite file and line numbers; they '
+            . 'are given. Say whether this is a bug in the code or invalid input that '
+            . 'should have been rejected earlier. Do not answer with "validate the '
+            . 'input", "check the format", or any other instruction to go and '
+            . 'investigate — investigating is the job you are doing. Do not ask for '
+            . 'anything already shown above. Values shown as %s were scrubbed of '
+            . 'secrets deliberately; that is not the bug. Only if the code that would '
+            . 'explain this is genuinely absent above, begin with "UNSURE:" and name '
+            . 'the one file or value you would need.',
             $this->wordLimit,
             Redactor::MASK
         );
